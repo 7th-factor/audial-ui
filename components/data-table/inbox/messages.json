@@ -1,0 +1,102 @@
+[
+  {
+    "id": "MSG-001",
+    "sender": "Sarah Johnson",
+    "email": "sarah.johnson@acme.com",
+    "subject": "Q4 Marketing Campaign Review",
+    "preview": "Hi, I wanted to follow up on our discussion about the Q4 marketing campaign...",
+    "status": "unread",
+    "label": "work",
+    "date": "2024-01-15"
+  },
+  {
+    "id": "MSG-002",
+    "sender": "Michael Chen",
+    "email": "m.chen@techcorp.io",
+    "subject": "Partnership Proposal",
+    "preview": "Thank you for your interest in partnering with TechCorp. We would like to...",
+    "status": "starred",
+    "label": "important",
+    "date": "2024-01-14"
+  },
+  {
+    "id": "MSG-003",
+    "sender": "Emily Davis",
+    "email": "emily.d@startup.co",
+    "subject": "Meeting Reschedule Request",
+    "preview": "I hope this email finds you well. Unfortunately, I need to reschedule our...",
+    "status": "read",
+    "label": "work",
+    "date": "2024-01-13"
+  },
+  {
+    "id": "MSG-004",
+    "sender": "John Smith",
+    "email": "john.smith@gmail.com",
+    "subject": "Weekend Plans",
+    "preview": "Hey! Are you free this weekend? I was thinking we could grab dinner at...",
+    "status": "read",
+    "label": "personal",
+    "date": "2024-01-12"
+  },
+  {
+    "id": "MSG-005",
+    "sender": "Billing Department",
+    "email": "billing@cloudservices.com",
+    "subject": "Invoice #INV-2024-0156",
+    "preview": "Please find attached your invoice for services rendered in December 2023...",
+    "status": "unread",
+    "label": "work",
+    "date": "2024-01-11"
+  },
+  {
+    "id": "MSG-006",
+    "sender": "Alex Turner",
+    "email": "alex.t@designstudio.com",
+    "subject": "Design Assets Ready for Review",
+    "preview": "The design team has completed the new brand assets. Please review them at...",
+    "status": "unread",
+    "label": "important",
+    "date": "2024-01-10"
+  },
+  {
+    "id": "MSG-007",
+    "sender": "HR Team",
+    "email": "hr@company.com",
+    "subject": "Annual Performance Review Reminder",
+    "preview": "This is a reminder that your annual performance review is scheduled for...",
+    "status": "read",
+    "label": "work",
+    "date": "2024-01-09"
+  },
+  {
+    "id": "MSG-008",
+    "sender": "Newsletter",
+    "email": "newsletter@techweekly.com",
+    "subject": "This Week in Tech: AI Updates",
+    "preview": "Your weekly roundup of the latest technology news and trends...",
+    "status": "archived",
+    "label": "other",
+    "date": "2024-01-08"
+  },
+  {
+    "id": "MSG-009",
+    "sender": "Lisa Wong",
+    "email": "lisa.wong@ventures.vc",
+    "subject": "Investment Opportunity Discussion",
+    "preview": "Following our call last week, I'd like to schedule a follow-up meeting to...",
+    "status": "starred",
+    "label": "important",
+    "date": "2024-01-07"
+  },
+  {
+    "id": "MSG-010",
+    "sender": "Support Team",
+    "email": "support@saasplatform.io",
+    "subject": "Re: Technical Issue #45892",
+    "preview": "We've identified the root cause of the issue you reported and have deployed...",
+    "status": "read",
+    "label": "work",
+    "date": "2024-01-06"
+  }
+]

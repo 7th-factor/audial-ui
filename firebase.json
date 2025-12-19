@@ -1,0 +1,14 @@
+{
+  "emulators": {
+    "auth": {
+      "port": 9210,
+      "host": "localhost"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4010,
+      "host": "localhost"
+    }
+  }
+}
+

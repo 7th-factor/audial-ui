@@ -1,0 +1,82 @@
+[
+  {
+    "id": "KEY-001",
+    "name": "Production API Key",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["read", "write", "delete"],
+    "createdAt": "2024-01-01",
+    "lastUsed": "2024-01-15",
+    "expiresAt": "2025-01-01"
+  },
+  {
+    "id": "KEY-002",
+    "name": "Development Key",
+    "key": "sk_test_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["read", "write"],
+    "createdAt": "2024-01-05",
+    "lastUsed": "2024-01-14",
+    "expiresAt": null
+  },
+  {
+    "id": "KEY-003",
+    "name": "Read-Only Analytics",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["read"],
+    "createdAt": "2023-12-15",
+    "lastUsed": "2024-01-13",
+    "expiresAt": "2024-06-15"
+  },
+  {
+    "id": "KEY-004",
+    "name": "Legacy Integration",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "revoked",
+    "permissions": ["read", "write"],
+    "createdAt": "2023-06-01",
+    "lastUsed": "2023-11-30",
+    "expiresAt": null
+  },
+  {
+    "id": "KEY-005",
+    "name": "Admin Dashboard",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["admin"],
+    "createdAt": "2023-10-01",
+    "lastUsed": "2024-01-15",
+    "expiresAt": "2024-10-01"
+  },
+  {
+    "id": "KEY-006",
+    "name": "Mobile App Key",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "expired",
+    "permissions": ["read"],
+    "createdAt": "2023-01-01",
+    "lastUsed": "2023-12-31",
+    "expiresAt": "2024-01-01"
+  },
+  {
+    "id": "KEY-007",
+    "name": "Webhook Handler",
+    "key": "sk_live_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["read", "write"],
+    "createdAt": "2023-11-15",
+    "lastUsed": "2024-01-12",
+    "expiresAt": null
+  },
+  {
+    "id": "KEY-008",
+    "name": "CI/CD Pipeline",
+    "key": "sk_test_EXAMPLE_KEY_REPLACE_WITH_REAL",
+    "status": "active",
+    "permissions": ["read", "write", "delete"],
+    "createdAt": "2023-09-01",
+    "lastUsed": "2024-01-10",
+    "expiresAt": "2024-09-01"
+  }
+]

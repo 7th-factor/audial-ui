@@ -1,0 +1,102 @@
+[
+  {
+    "id": "CON-001",
+    "name": "Alice Martinez",
+    "email": "alice.martinez@techgiant.com",
+    "company": "TechGiant Inc.",
+    "role": "VP of Engineering",
+    "status": "active",
+    "tags": ["customer", "enterprise"],
+    "lastContact": "2024-01-15"
+  },
+  {
+    "id": "CON-002",
+    "name": "Bob Williams",
+    "email": "bob.w@startuphub.io",
+    "company": "StartupHub",
+    "role": "CEO",
+    "status": "vip",
+    "tags": ["partner", "lead"],
+    "lastContact": "2024-01-14"
+  },
+  {
+    "id": "CON-003",
+    "name": "Carol Thompson",
+    "email": "carol@designfirm.co",
+    "company": "Design Firm Co.",
+    "role": "Creative Director",
+    "status": "active",
+    "tags": ["customer"],
+    "lastContact": "2024-01-12"
+  },
+  {
+    "id": "CON-004",
+    "name": "David Lee",
+    "email": "david.lee@enterprise.org",
+    "company": "Enterprise Solutions",
+    "role": "CTO",
+    "status": "active",
+    "tags": ["enterprise", "customer"],
+    "lastContact": "2024-01-10"
+  },
+  {
+    "id": "CON-005",
+    "name": "Emma Wilson",
+    "email": "emma@freelance.me",
+    "company": "Freelance",
+    "role": "Consultant",
+    "status": "inactive",
+    "tags": ["lead"],
+    "lastContact": "2023-12-20"
+  },
+  {
+    "id": "CON-006",
+    "name": "Frank Garcia",
+    "email": "frank.garcia@bigcorp.com",
+    "company": "BigCorp Ltd.",
+    "role": "Head of Procurement",
+    "status": "pending",
+    "tags": ["lead", "enterprise"],
+    "lastContact": "2024-01-08"
+  },
+  {
+    "id": "CON-007",
+    "name": "Grace Kim",
+    "email": "grace@innovate.tech",
+    "company": "Innovate Tech",
+    "role": "Product Manager",
+    "status": "active",
+    "tags": ["customer", "partner"],
+    "lastContact": "2024-01-13"
+  },
+  {
+    "id": "CON-008",
+    "name": "Henry Brown",
+    "email": "h.brown@globalinc.com",
+    "company": "Global Inc.",
+    "role": "Director of Operations",
+    "status": "vip",
+    "tags": ["enterprise", "customer"],
+    "lastContact": "2024-01-11"
+  },
+  {
+    "id": "CON-009",
+    "name": "Ivy Chen",
+    "email": "ivy.chen@startup.co",
+    "company": "Startup Co.",
+    "role": "Founder",
+    "status": "active",
+    "tags": ["lead"],
+    "lastContact": "2024-01-09"
+  },
+  {
+    "id": "CON-010",
+    "name": "Jack Robinson",
+    "email": "jack@agencyxyz.com",
+    "company": "Agency XYZ",
+    "role": "Account Manager",
+    "status": "inactive",
+    "tags": ["partner"],
+    "lastContact": "2023-11-30"
+  }
+]
