@@ -10,6 +10,8 @@ import {
   IconRobot,
   IconUsers,
   IconUserCheck,
+  IconPlugConnected,
+  IconSettings,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -80,20 +82,30 @@ const sidebarConfig = {
         url: "/agent",
         icon: IconRobot,
       },
+      {
+        title: "Integrations",
+        url: "/integrations",
+        icon: IconPlugConnected,
+      },
+      {
+        title: "Settings",
+        url: "/settings",
+        icon: IconSettings,
+      },
     ],
   },
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <a href="#">
-                <span className="flex size-5 items-center justify-center rounded-full bg-red-500" />
-                <span className="text-base font-semibold">Audial</span>
+                <img src="/logo.png" alt="Audial" width={24} height={24} className="size-6 shrink-0" />
+                <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">Audial</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

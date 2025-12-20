@@ -1,4 +1,4 @@
-.PHONY: help dev dev-prod dev-local dev-local-bg dev-local-logs dev-bg dev-bg-prod dev-bg-local stop kill test test-e2e test-browser test-browser-ui test-browser-headed test-browser-debug test-browser-report lint typecheck build build-safe build-staging logs tail tail-live logs-live logs-emulator logs-dev logs-errors logs-clear emulator-start emulator-stop emulator-logs emulator-status health status doctor ports ps clean reinstall check-port kill-port deploy-staging deploy-prod deploy-status sync-env-staging sync-env-prod sync-env-staging-dry sync-env-prod-dry
+.PHONY: help dev dev-prod dev-local dev-local-bg dev-local-logs dev-bg dev-bg-prod dev-bg-local stop kill test test-e2e test-browser test-browser-ui test-browser-headed test-browser-debug test-browser-report lint typecheck build build-safe build-staging logs tail tail-live logs-live logs-emulator logs-dev logs-errors logs-clear emulator-start emulator-stop emulator-logs emulator-export emulator-clear emulator-status health status doctor ports ps clean reinstall check-port kill-port deploy-staging deploy-prod deploy-status sync-env-staging sync-env-prod sync-env-staging-dry sync-env-prod-dry
 
 # Configuration
 ADMIN_PORT := 3000
@@ -31,12 +31,8 @@ dev-prod: ## Start dev server with production API
 	@echo "🚀 Starting dev server with PRODUCTION API..."
 	@DOPPLER_CONFIG=prd npm run dev
 
-dev-local: ## Start emulators + dev server with local API (foreground)
-	@echo "🚀 Starting Firebase emulators + dev server..."
-	@$(MAKE) emulator-start
-	@sleep 2
-	@echo "🚀 Starting Next.js dev server..."
-	@DOPPLER_CONFIG=dev_local npm run dev
+dev-local: ## Start emulators + dev server with local API (Ctrl+C stops all)
+	@./scripts/dev-local.sh
 
 dev-local-bg: ## Start emulators + dev server in background
 	@echo "🚀 Starting Firebase emulators + dev server in background..."
@@ -52,11 +48,8 @@ dev-local-bg: ## Start emulators + dev server in background
 		echo "⚠️  Server may still be starting. Check logs: make logs-live"; \
 	fi
 
-dev-local-logs: ## Start everything + tail combined logs
-	@echo "🚀 Starting Firebase emulators + dev server with log tailing..."
-	@$(MAKE) dev-local-bg
-	@sleep 2
-	@$(MAKE) logs-live
+dev-local-logs: ## Start everything + tail logs (Ctrl+C stops all)
+	@./scripts/dev-local-logs.sh
 
 dev-bg: ## Start dev server in background with staging API
 	@echo "🚀 Starting Next.js dev server in background (STAGING API)..."
@@ -180,12 +173,18 @@ typecheck: ## Run TypeScript type checking
 emulator-start: ## Start Firebase emulators in background
 	@./scripts/start-emulators.sh
 
-emulator-stop: ## Stop Firebase emulators
-	@echo "🛑 Stopping Firebase emulators..."
+emulator-stop: ## Stop Firebase emulators (graceful - saves data)
+	@echo "🛑 Stopping Firebase emulators (graceful shutdown)..."
 	@if [ -f $(EMULATOR_PID_FILE) ]; then \
 		PID=$$(cat $(EMULATOR_PID_FILE)); \
 		if ps -p $$PID > /dev/null 2>&1; then \
-			kill $$PID 2>/dev/null || true; \
+			echo "   💾 Exporting data before shutdown..."; \
+			kill -TERM $$PID 2>/dev/null || true; \
+			sleep 3; \
+			if ps -p $$PID > /dev/null 2>&1; then \
+				echo "   ⚠️  Process still running, force killing..."; \
+				kill -9 $$PID 2>/dev/null || true; \
+			fi; \
 			echo "✅ Emulators stopped (PID: $$PID)"; \
 		else \
 			echo "⚠️  Emulator process not found"; \
@@ -194,7 +193,8 @@ emulator-stop: ## Stop Firebase emulators
 	else \
 		echo "⚠️  No emulator PID file found"; \
 	fi
-	@pkill -f "firebase emulators" 2>/dev/null || true
+	@pkill -TERM -f "firebase emulators" 2>/dev/null || true
+	@sleep 2
 	@lsof -ti:$(EMULATOR_AUTH_PORT) | xargs kill -9 2>/dev/null || true
 	@lsof -ti:$(EMULATOR_UI_PORT) | xargs kill -9 2>/dev/null || true
 
@@ -205,6 +205,20 @@ emulator-logs: ## Tail emulator logs
 	else \
 		echo "No emulator logs found. Start emulators with 'make emulator-start'"; \
 	fi
+
+emulator-export: ## Export emulator data manually
+	@echo "📦 Exporting emulator data..."
+	@if lsof -i:$(EMULATOR_AUTH_PORT) > /dev/null 2>&1; then \
+		firebase emulators:export .firebase-emulator-data --project elemente-dev --force; \
+		echo "✅ Emulator data exported to .firebase-emulator-data/"; \
+	else \
+		echo "⚠️  Emulators not running. Data is auto-exported on graceful shutdown."; \
+	fi
+
+emulator-clear: ## Clear persisted emulator data
+	@echo "🗑️  Clearing emulator data..."
+	@rm -rf .firebase-emulator-data
+	@echo "✅ Emulator data cleared. Next start will be fresh."
 
 emulator-status: ## Check emulator status
 	@echo "🔍 Firebase Emulator Status"
@@ -231,6 +245,14 @@ emulator-status: ## Check emulator status
 		echo "      UI: http://localhost:$(EMULATOR_UI_PORT)"; \
 	else \
 		echo "   ⚪ Emulator UI: Port $(EMULATOR_UI_PORT) available"; \
+	fi
+	@echo ""
+	@echo "Persisted Data:"
+	@if [ -d .firebase-emulator-data ]; then \
+		echo "   📦 Data exists: .firebase-emulator-data/"; \
+		ls -la .firebase-emulator-data/ 2>/dev/null | head -5 || true; \
+	else \
+		echo "   ⚪ No persisted data (first run or cleared)"; \
 	fi
 
 ##@ Logs

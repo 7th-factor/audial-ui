@@ -96,9 +96,9 @@ export function NavMain({
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <SidebarGroup className="mt-auto">
+      <SidebarGroup className="mt-auto group-data-[collapsible=icon]:hidden">
         <SidebarGroupContent>
-          <Card className="mx-2">
+          <Card className="p-4 gap-0">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-sm">Upgrade to Pro</CardTitle>
               <CardDescription className="text-xs">Unlock more exclusive features and get more credit.</CardDescription>

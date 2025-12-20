@@ -44,10 +44,18 @@ if lsof -i:$EMULATOR_UI_PORT > /dev/null 2>&1; then
   exit 1
 fi
 
+EMULATOR_DATA_DIR=".firebase-emulator-data"
+
 echo "🔥 Starting Firebase emulators..."
 echo "   Auth emulator: http://localhost:$EMULATOR_AUTH_PORT"
 echo "   Emulator UI: http://localhost:$EMULATOR_UI_PORT"
 echo "   Logs: $EMULATOR_LOG_FILE"
+if [ -d "$EMULATOR_DATA_DIR" ]; then
+  echo "   📦 Importing data from: $EMULATOR_DATA_DIR"
+else
+  echo "   📦 No existing data found (fresh start)"
+fi
+echo "   💾 Data will auto-save on graceful shutdown"
 
 # Start emulators in background
 npm run emulator:start > "$EMULATOR_LOG_FILE" 2>&1 &
