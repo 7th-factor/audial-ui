@@ -12,6 +12,7 @@ export interface MockCall {
   source?: 'upload' | 'vapi' | 'bland' | 'twilio' | 'manual' | 'Unknown';
   origin?: 'simulation' | 'real';
   assistantName: string;
+  agentName?: string; // Alias for assistantName
   customerName: string;
   scoreStatus?: 'auto' | 'manual' | 'pending' | 'none';
   overallScore?: number;

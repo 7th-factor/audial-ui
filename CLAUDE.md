@@ -304,6 +304,55 @@ Before committing:
 
 ---
 
+## Utility & Script Pattern
+
+### Make-First Approach
+
+**All utilities and automation MUST use Make targets as the primary interface.**
+
+```
+make/<category>.mk  →  Makefile (includes)  →  scripts/ (if complex)
+```
+
+**Rules**:
+
+1. **Make targets are the interface** - Users run `make <target>`, not direct scripts
+2. **Modular makefiles** - Targets organized in `make/*.mk` files by category:
+   - `make/dev.mk` - Development server targets
+   - `make/test.mk` - Testing targets
+   - `make/build.mk` - Build and lint targets
+   - `make/emulator.mk` - Firebase emulator targets
+   - `make/logs.mk` - Log viewing targets
+   - `make/deploy.mk` - Deployment targets
+   - `make/status.mk` - Health and status targets
+   - `make/utils.mk` - Utility targets
+3. **Scripts are implementation details** - `scripts/` folder contains complex logic that Make targets call
+4. **No direct script execution** - Never document `./scripts/foo.sh` as the primary way to do something
+5. **One-time scripts are exceptions** - Truly one-time migration or setup scripts can be standalone
+
+### When to Create a Script
+
+Create a script in `scripts/` when:
+- Logic is too complex for inline Make commands
+- Multiple commands need error handling
+- Script needs to be shared with CI/CD
+
+**Always create a Make target that calls the script.**
+
+### Example
+
+```makefile
+# In make/deploy.mk
+deploy-staging: sync-env-staging ## Sync env + deploy to Vercel staging
+	@npx vercel --yes
+
+# Script handles complex Doppler → Vercel sync
+sync-env-staging: ## Sync Doppler (stg) → Vercel preview environment
+	@./scripts/sync-env-to-vercel.sh stg preview
+```
+
+---
+
 ## Notes
 
 - **Primary function**: Building admin UI, not API
