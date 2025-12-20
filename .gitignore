@@ -38,6 +38,16 @@ yarn-error.log*
 
 # Firebase emulator data (persisted locally)
 .firebase-emulator-data/
+.emulator.pid
+firebase-debug.log
+ui-debug.log
+
+# Logs
+logs/
+
+# Local tool configs
+.claude/
+.playwright-mcp/
 
 # typescript
 *.tsbuildinfo
