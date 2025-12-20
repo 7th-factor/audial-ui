@@ -104,7 +104,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <a href="#">
-                <img src="/logo.png" alt="Audial" width={24} height={24} className="size-6 shrink-0" />
+                <img src="/logo.svg" alt="Audial" width={28} height={28} className="w-7 h-7 min-w-7 min-h-7 shrink-0" />
                 <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">Audial</span>
               </a>
             </SidebarMenuButton>

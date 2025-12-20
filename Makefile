@@ -1,7 +1,7 @@
 # audial-admin Makefile
 # Modular structure - see make/*.mk for target definitions
 
-.PHONY: help dev dev-prod dev-local dev-local-bg dev-local-logs dev-bg dev-bg-prod dev-bg-local dev-debug stop kill test test-e2e test-browser test-browser-ui test-browser-headed test-browser-debug test-browser-report test-watch lint typecheck build build-safe build-staging logs tail tail-live logs-live logs-emulator logs-dev logs-errors logs-clear emulator-start emulator-stop emulator-logs emulator-export emulator-clear emulator-status health status doctor ports ps clean clean-all reinstall check-port kill-port deploy-staging deploy-prod deploy-preview deploy-status sync-env-staging sync-env-prod sync-env-staging-dry sync-env-prod-dry
+.PHONY: help dev dev-prod dev-local dev-local-bg dev-local-logs dev-bg dev-bg-prod dev-bg-local dev-debug stop kill test test-e2e test-browser test-browser-ui test-browser-headed test-browser-debug test-browser-report test-watch lint typecheck build build-safe build-staging logs tail tail-live logs-live logs-emulator logs-dev logs-errors logs-clear emulator-start emulator-stop emulator-logs emulator-export emulator-clear emulator-status health status doctor ports ps clean clean-all reinstall check-port kill-port deploy-staging deploy-prod deploy-preview deploy-status sync-env-staging sync-env-prod sync-env-staging-dry sync-env-prod-dry theme-list theme theme-save theme-add
 
 # =============================================================================
 # Configuration
@@ -34,6 +34,7 @@ include make/logs.mk
 include make/deploy.mk
 include make/status.mk
 include make/utils.mk
+include make/theme.mk
 
 # =============================================================================
 # Help (must be in main file to aggregate all targets)

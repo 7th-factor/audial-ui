@@ -8,12 +8,14 @@ export {
   ActionItemsWidget,
   UpsellWidget,
 } from './call-sidebar';
+export { CallHeader } from './call-header';
 export { CallTranscriptView } from './call-transcript';
 export {
   CallsListSidebar,
   hasActiveFilters,
   type SidebarCallItem,
 } from './calls-list-sidebar';
+export { ScoreCardWidget, type ScoreMetric } from './scorecard-widget';
 
 // Transcript sub-components
 export { TranscriptHeader } from './transcript-header';

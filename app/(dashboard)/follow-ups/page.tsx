@@ -9,6 +9,8 @@ import { DataTable } from "@/components/data-table/data-table"
 import { columns } from "@/components/data-table/columns"
 import { statuses, priorities } from "@/components/data-table/data/data"
 import { BulkActions, useTaskBulkActions } from "@/components/bulk-actions"
+// Kanban view hidden for now - uncomment when ready
+// import { KanbanBoard, ViewToggle, type ViewMode } from "@/components/follow-ups"
 import type { Task } from "@/components/data-table/data/schema"
 
 const tasks: Task[] = [
@@ -87,6 +89,9 @@ export default function FollowUpsPage() {
         actions={bulkActions}
         onClearSelection={() => setSelectedRows([])}
       />
+      {/* Kanban view toggle hidden for now
+      <ViewToggle view={view} onViewChange={setView} />
+      */}
       <Button>Add Follow Up</Button>
     </div>
   )

@@ -76,7 +76,7 @@ export function IntegrationCard({ integration, onSetup, onToggle }: IntegrationC
           )}
         </div>
         <div className={cn('flex-1 min-w-0', integration.comingSoon && 'opacity-70')}>
-          <div className="text-base leading-tight font-medium">{integration.name}</div>
+          <div className="text-base leading-normal font-medium">{integration.name}</div>
           <div className="text-xs leading-snug text-muted-foreground line-clamp-2">
             {integration.description}
           </div>

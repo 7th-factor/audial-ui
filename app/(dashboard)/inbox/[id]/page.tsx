@@ -2,39 +2,41 @@
 
 import React, { Suspense, useState, useMemo, use } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  Zap,
+  FileText,
   Phone,
   User,
-  FileText,
-  BarChart3,
-  Activity,
   GraduationCap,
   ListTodo,
   TrendingUp,
-  Clock,
-  PhoneIncoming,
-  PhoneOutgoing,
   RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { getMockCall, type MockCall } from '@/lib/mock-data/calls';
 import { CallTranscriptView } from '@/components/calls/call-transcript';
-import { CallSidebar, CallMetadataWidget, CustomerInfoWidget, AISummaryWidget, CoachingWidget, ActionItemsWidget, UpsellWidget } from '@/components/calls/call-sidebar';
+import {
+  CallSidebar,
+  CallMetadataWidget,
+  CustomerInfoWidget,
+  AISummaryWidget,
+  CoachingWidget,
+  ActionItemsWidget,
+  UpsellWidget,
+} from '@/components/calls/call-sidebar';
 import { CallsListSidebar, hasActiveFilters } from '@/components/calls/calls-list-sidebar';
-import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
+import { CallHeader } from '@/components/calls/call-header';
+import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
 
 // Inner component that uses useSearchParams
 function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const searchParams = useSearchParams();
+
   // Handle both Promise and direct params for Next.js 16 compatibility
-  // Wrap in Promise if needed, then use React's use hook
-  const paramsPromise = 'then' in params && typeof params.then === 'function' 
-    ? params 
-    : Promise.resolve(params);
+  const paramsPromise =
+    'then' in params && typeof params.then === 'function'
+      ? params
+      : Promise.resolve(params);
   const resolvedParams = use(paramsPromise);
   const callId = resolvedParams.id;
 
@@ -43,29 +45,13 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   const [isPlaying, setIsPlaying] = useState(false);
   const audioControlRef = React.useRef<{ pause: () => void } | null>(null);
 
-  // Determine if sidebar should be open based on URL filter context
-  const hasFilterContext = useMemo(() => {
-    return hasActiveFilters(searchParams);
-  }, [searchParams]);
-
+  // Sidebar toggle state
+  const hasFilterContext = useMemo(() => hasActiveFilters(searchParams), [searchParams]);
   const [callsListSidebarOpen, setCallsListSidebarOpen] = useState(true);
-
-  const handleSidebarToggle = () => {
-    setCallsListSidebarOpen((prev) => !prev);
-  };
 
   // Get mock call data
   const callData = getMockCall(callId);
   const isLoading = false;
-
-  // Format duration for display
-  const formatDuration = (seconds?: number): string => {
-    if (seconds === undefined || seconds === null) return '';
-    if (seconds === 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Calculate duration from transcript segments if not in call data
   const calculatedDuration = useMemo(() => {
@@ -79,37 +65,23 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
     return 0;
   }, [callData]);
 
-  // Build page title and description
-  const pageTitle = callData?.agentName || 'Call Details';
-  const customerDisplayName =
-    callData?.customerName ||
-    callData?.customerPhone ||
-    'Unknown';
-  const pageDescription = callData
-    ? `${customerDisplayName} • ${callData.duration} • ${callData.status || 'Unknown status'}`
-    : 'Loading call details...';
-
-  // Get status badge color
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case 'completed':
-      case 'ended':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'failed':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
-    }
-  };
-
-  // Determine if we should show loading state for the main content
-  const isCallLoading = isLoading || !callData;
-
   // Build sidebar widgets
   const sidebarWidgets = useMemo(
     () => [
+      {
+        id: 'scorecard',
+        title: 'Scorecard',
+        icon: <BarChart3 className="h-4 w-4" />,
+        content: (
+          <ScoreCardWidget
+            scorecard={callData?.scorecard}
+            onRunAgain={() => {
+              console.log('Run analysis for call:', callId);
+            }}
+          />
+        ),
+        defaultOpen: true,
+      },
       {
         id: 'summary',
         title: 'AI Summary',
@@ -125,7 +97,6 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
             isLoading={isLoading}
           />
         ),
-        defaultOpen: true,
       },
       {
         id: 'metadata',
@@ -195,140 +166,65 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
     [callData, isLoading, calculatedDuration]
   );
 
+  // Call not found state
   if (!callData) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h3 className="text-lg font-semibold">Call Not Found</h3>
-          <p className="text-sm text-muted-foreground">The call you're looking for doesn't exist.</p>
+          <p className="text-sm text-muted-foreground">
+            The call you&apos;re looking for doesn&apos;t exist.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden gap-4 p-4">
-      {/* Left Column: Calls List Sidebar */}
-      <div className="flex-none h-full overflow-hidden">
-        <CallsListSidebar
-          currentCallId={callId}
-          isOpen={callsListSidebarOpen}
-          onToggle={handleSidebarToggle}
-          hasFilterContext={hasFilterContext}
-        />
-      </div>
+    <div className="flex h-full w-full overflow-hidden gap-4 p-4 px-6">
+      {/* Left Panel: Calls List Sidebar */}
+      <CallsListSidebar
+        currentCallId={callId}
+        isOpen={callsListSidebarOpen}
+        onToggle={() => setCallsListSidebarOpen((prev) => !prev)}
+        hasFilterContext={hasFilterContext}
+      />
 
-      {/* Right Column: Header + Main Content */}
+      {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-        {/* Compact Header */}
-        {isCallLoading ? (
-          <div className="flex-none pb-6 border-b mb-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-9 w-28" />
-            </div>
-          </div>
-        ) : (
-          <div className="flex-none pb-6 border-b mb-6 space-y-4" data-testid="page-header">
-            {/* Top row: Call info and actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {/* Call info */}
-                <div className="flex items-center gap-4">
-                  {/* Direction icon */}
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted">
-                    {callData?.direction === 'inbound' ? (
-                      <PhoneIncoming className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <PhoneOutgoing className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
+        {/* Header */}
+        <CallHeader
+          call={callData}
+          isLoading={isLoading}
+          onToggleSidebar={() => setCallsListSidebarOpen((prev) => !prev)}
+          isSidebarOpen={callsListSidebarOpen}
+          onRunAnalysis={() => {
+            // TODO: Implement run analysis
+            console.log('Run analysis for call:', callId);
+          }}
+        />
 
-                  {/* Title and metadata */}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-lg font-semibold" data-testid="page-title">
-                        {customerDisplayName}
-                      </h1>
-                      <span className="text-muted-foreground mx-1">→</span>
-                      <span className="text-lg text-muted-foreground">{pageTitle}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{callData.duration}</span>
-                      </div>
-                      {callData?.startTime && (
-                        <>
-                          <span>•</span>
-                          <span>
-                            {new Date(callData.startTime).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </>
-                      )}
-                      {callData?.source && (
-                        <>
-                          <span>•</span>
-                          <span className="capitalize">{callData.source}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={cn('text-xs', getStatusColor(callData?.status))}
-                >
-                  {callData?.status || 'Unknown'}
-                </Badge>
-                <Button
-                  disabled={isLoading}
-                  size="sm"
-                  data-testid="run-analysis-button"
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Run Analysis
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main content with transcript and sidebar - fixed height to enable internal scrolling */}
+        {/* Resizable Panels: Transcript + Right Sidebar */}
         <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 overflow-hidden">
-          {/* Transcript area - takes remaining space */}
+          {/* Transcript Panel */}
           <ResizablePanel
             defaultSize={70}
             minSize={50}
             className="flex flex-col min-w-0 min-h-0 overflow-hidden pr-2"
           >
-            {isCallLoading ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading transcript...</span>
-              </div>
-            ) : (
-              <div className="flex-1 min-h-0 max-h-[85vh] overflow-hidden">
-                <CallTranscriptView
-                  callData={callData}
-                  isLoading={isLoading}
-                  currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
-                  onPause={() => audioControlRef.current?.pause()}
-                />
-              </div>
-            )}
+            <div className="flex-1 min-h-0 max-h-full overflow-hidden">
+              <CallTranscriptView
+                callData={callData}
+                isLoading={isLoading}
+                currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
+                onPause={() => audioControlRef.current?.pause()}
+              />
+            </div>
           </ResizablePanel>
 
-          {/* Right sidebar with collapsible widgets */}
+          <ResizableHandle withHandle className="mx-2" />
+
+          {/* Right Sidebar with Widgets */}
           <ResizablePanel
             defaultSize={30}
             minSize={25}
@@ -363,4 +259,3 @@ export default function CallDetailsPage({
 }
 
 export const dynamic = 'force-dynamic';
-

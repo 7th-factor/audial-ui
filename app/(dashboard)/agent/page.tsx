@@ -76,7 +76,7 @@ export default function AgentPage() {
       }
     >
       <div className="px-4 lg:px-6">
-        <Tabs defaultValue="general" className="w-full">
+        <Tabs defaultValue="general" className="w-full p-2 bg-muted">
           <TabsList>
             <TabsTrigger value="general">
               <IconSettings className="size-4" />
@@ -104,7 +104,7 @@ export default function AgentPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general" className="mt-6 space-y-4">
+          <TabsContent value="general" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Agent Avatar</CardTitle>
