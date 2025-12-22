@@ -1,12 +1,11 @@
 import type React from "react"
-import type { LucideIcon } from "lucide-react"
 import type { Icon } from "@tabler/icons-react"
 
 interface PageLayoutProps {
   children: React.ReactNode
   title?: string
   description?: string
-  icon?: LucideIcon | Icon
+  icon?: Icon
   actions?: React.ReactNode
 }
 

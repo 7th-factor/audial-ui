@@ -1,7 +1,7 @@
 "use client"
 
 import type { Table } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -48,7 +48,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             disabled={!table.getCanPreviousPage()}
           >
             <span className="sr-only">Go to first page</span>
-            <ChevronsLeft />
+            <IconChevronsLeft className="size-4" />
           </Button>
           <Button
             variant="outline"
@@ -57,7 +57,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             disabled={!table.getCanPreviousPage()}
           >
             <span className="sr-only">Go to previous page</span>
-            <ChevronLeft />
+            <IconChevronLeft className="size-4" />
           </Button>
           <Button
             variant="outline"
@@ -66,7 +66,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             disabled={!table.getCanNextPage()}
           >
             <span className="sr-only">Go to next page</span>
-            <ChevronRight />
+            <IconChevronRight className="size-4" />
           </Button>
           <Button
             variant="outline"
@@ -75,7 +75,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             disabled={!table.getCanNextPage()}
           >
             <span className="sr-only">Go to last page</span>
-            <ChevronsRight />
+            <IconChevronsRight className="size-4" />
           </Button>
         </div>
       </div>
