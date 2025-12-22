@@ -31,16 +31,25 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 
-export function NavUser({
-  user,
-}: {
+interface NavUserProps {
   user: {
     name: string
     email: string
     avatar: string
   }
-}) {
+  /** Show user name in the nav button and dropdown (default: true) */
+  showName?: boolean
+  /** Show user email in the nav button and dropdown (default: true) */
+  showEmail?: boolean
+}
+
+export function NavUser({
+  user,
+  showName = true,
+  showEmail = true,
+}: NavUserProps) {
   const { isMobile } = useSidebar()
+  const showUserInfo = showName || showEmail
 
   return (
     <SidebarMenu>
@@ -55,12 +64,16 @@ export function NavUser({
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="rounded-lg">CN</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-normal">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
-                </span>
-              </div>
+              {showUserInfo && (
+                <div className="grid flex-1 text-left text-sm leading-normal">
+                  {showName && <span className="truncate font-medium">{user.name}</span>}
+                  {showEmail && (
+                    <span className="text-muted-foreground truncate text-xs">
+                      {user.email}
+                    </span>
+                  )}
+                </div>
+              )}
               <IconDotsVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
@@ -76,12 +89,16 @@ export function NavUser({
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-normal">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {user.email}
-                  </span>
-                </div>
+                {showUserInfo && (
+                  <div className="grid flex-1 text-left text-sm leading-normal">
+                    {showName && <span className="truncate font-medium">{user.name}</span>}
+                    {showEmail && (
+                      <span className="text-muted-foreground truncate text-xs">
+                        {user.email}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

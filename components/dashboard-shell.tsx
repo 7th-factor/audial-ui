@@ -40,7 +40,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       >
         <AppSidebar variant="inset" />
         <SidebarInset>
-          <SiteHeader />
+          <SiteHeader showName={false} showEmail={false} />
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="@container/main flex-1 overflow-y-auto">{children}</div>
           </div>
