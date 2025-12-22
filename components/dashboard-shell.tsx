@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { CommandPalette } from "@/components/command-palette"
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
 import { useKeyboardShortcuts } from "@/lib/hooks/use-keyboard-shortcuts"
 
 interface DashboardShellProps {
@@ -13,14 +14,12 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false)
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = React.useState(false)
 
   useKeyboardShortcuts({
     enabled: true,
     onCommandPalette: () => setCommandPaletteOpen(true),
-    onShowShortcuts: () => {
-      // Will be handled by keyboard shortcuts dialog in next commit
-      console.log("Show shortcuts dialog")
-    },
+    onShowShortcuts: () => setShortcutsDialogOpen(true),
   })
 
   return (
@@ -51,6 +50,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
+      />
+
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
       />
     </>
   )
