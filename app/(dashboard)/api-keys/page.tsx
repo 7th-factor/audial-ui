@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table/data-table"
 import { columns } from "@/components/data-table/api-keys/columns"
 import { statuses, permissions } from "@/components/data-table/api-keys/data"
 import { BulkActions, useApiKeyBulkActions } from "@/components/bulk-actions"
+import { NewApiKeyDialog } from "@/components/api-keys"
 import type { ApiKey } from "@/components/data-table/api-keys/schema"
 
 const apiKeys: ApiKey[] = [
@@ -66,6 +67,7 @@ const apiKeys: ApiKey[] = [
 
 export default function ApiKeysPage() {
   const [selectedRows, setSelectedRows] = React.useState<ApiKey[]>([])
+  const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   const handleBulkAction = React.useCallback((action: string, rows: ApiKey[]) => {
     console.log(`Bulk action: ${action}`, rows)
@@ -81,7 +83,7 @@ export default function ApiKeysPage() {
         actions={bulkActions}
         onClearSelection={() => setSelectedRows([])}
       />
-      <Button>Generate Key</Button>
+      <Button onClick={() => setShowNewDialog(true)}>Generate Key</Button>
     </div>
   )
 
@@ -94,22 +96,38 @@ export default function ApiKeysPage() {
   )
 
   return (
-    <PageLayout
-      title="API Keys"
-      description="Manage your API keys and access tokens."
-      icon={IconKey}
-      actions={headerActions}
-    >
-      <div className="px-4 lg:px-6">
-        <DataTable
-          columns={columns}
-          data={apiKeys}
-          onSelectionChange={(rows) => setSelectedRows(rows as ApiKey[])}
-          searchColumnId="name"
-          searchPlaceholder="Filter API keys..."
-          facetedFilters={facetedFilters}
-        />
-      </div>
-    </PageLayout>
+    <>
+      <PageLayout
+        title="API Keys"
+        description="Manage your API keys and access tokens."
+        icon={IconKey}
+        actions={headerActions}
+      >
+        <div className="px-4 lg:px-6">
+          <DataTable
+            columns={columns}
+            data={apiKeys}
+            onSelectionChange={(rows) => setSelectedRows(rows as ApiKey[])}
+            searchColumnId="name"
+            searchPlaceholder="Filter API keys..."
+            facetedFilters={facetedFilters}
+            emptyState={{
+              icon: IconKey,
+              title: "No API keys",
+              description: "Generate your first API key to start integrating with our platform.",
+              primaryAction: {
+                label: "Generate your first key",
+                onClick: () => setShowNewDialog(true),
+              },
+            }}
+          />
+        </div>
+      </PageLayout>
+
+      <NewApiKeyDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+      />
+    </>
   )
 }

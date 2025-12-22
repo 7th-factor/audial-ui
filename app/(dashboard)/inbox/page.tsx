@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Phone, Eye, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { IconPhone } from '@tabler/icons-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -277,6 +278,15 @@ export default function InboxPage() {
           searchColumnId="customer"
           searchPlaceholder="Search by customer name or phone..."
           facetedFilters={facetedFilters}
+          emptyState={{
+            icon: IconPhone,
+            title: "No calls yet",
+            description: "Connect a phone number to start receiving and making calls.",
+            primaryAction: {
+              label: "Connect phone number",
+              onClick: () => console.log("Connect phone"),
+            },
+          }}
         />
       </div>
     </PageLayout>

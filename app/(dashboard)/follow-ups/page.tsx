@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table/data-table"
 import { columns } from "@/components/data-table/columns"
 import { statuses, priorities } from "@/components/data-table/data/data"
 import { BulkActions, useTaskBulkActions } from "@/components/bulk-actions"
+import { NewFollowUpDialog } from "@/components/follow-ups"
 // Kanban view hidden for now - uncomment when ready
 // import { KanbanBoard, ViewToggle, type ViewMode } from "@/components/follow-ups"
 import type { Task } from "@/components/data-table/data/schema"
@@ -74,6 +75,7 @@ const tasks: Task[] = [
 
 export default function FollowUpsPage() {
   const [selectedRows, setSelectedRows] = React.useState<Task[]>([])
+  const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   const handleBulkAction = React.useCallback((action: string, rows: Task[]) => {
     console.log(`Bulk action: ${action}`, rows)
@@ -92,7 +94,7 @@ export default function FollowUpsPage() {
       {/* Kanban view toggle hidden for now
       <ViewToggle view={view} onViewChange={setView} />
       */}
-      <Button>Add Follow Up</Button>
+      <Button onClick={() => setShowNewDialog(true)}>Add Follow Up</Button>
     </div>
   )
 
@@ -105,22 +107,38 @@ export default function FollowUpsPage() {
   )
 
   return (
-    <PageLayout
-      title="Follow Ups"
-      description="Track and manage your follow-up tasks."
-      icon={IconUserCheck}
-      actions={headerActions}
-    >
-      <div className="px-4 lg:px-6">
-        <DataTable
-          columns={columns}
-          data={tasks}
-          onSelectionChange={(rows) => setSelectedRows(rows as Task[])}
-          searchColumnId="title"
-          searchPlaceholder="Filter follow ups..."
-          facetedFilters={facetedFilters}
-        />
-      </div>
-    </PageLayout>
+    <>
+      <PageLayout
+        title="Follow Ups"
+        description="Track and manage your follow-up tasks."
+        icon={IconUserCheck}
+        actions={headerActions}
+      >
+        <div className="px-4 lg:px-6">
+          <DataTable
+            columns={columns}
+            data={tasks}
+            onSelectionChange={(rows) => setSelectedRows(rows as Task[])}
+            searchColumnId="title"
+            searchPlaceholder="Filter follow ups..."
+            facetedFilters={facetedFilters}
+            emptyState={{
+              icon: IconUserCheck,
+              title: "All caught up!",
+              description: "You have no pending follow-ups. Create one to stay on top of your tasks.",
+              primaryAction: {
+                label: "Create follow-up",
+                onClick: () => setShowNewDialog(true),
+              },
+            }}
+          />
+        </div>
+      </PageLayout>
+
+      <NewFollowUpDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+      />
+    </>
   )
 }
