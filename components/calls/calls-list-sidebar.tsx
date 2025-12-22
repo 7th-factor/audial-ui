@@ -59,7 +59,7 @@ function transformCallToSidebarItem(call: MockCall): SidebarCallItem {
   return {
     id: call.id,
     customerName: call.customerName || 'Unknown',
-    agentName: call.agentName || 'Agent',
+    agentName: call.assistantName || call.agentName || 'Agent',
     direction: call.direction === 'outbound' ? 'outbound' : 'inbound',
     duration: call.duration,
     score: call.overallScore,
@@ -201,7 +201,7 @@ export function CallsListSidebar({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate leading-tight">
+                          <div className="text-sm font-medium truncate leading-normal">
                             {call.customerName || 'Unknown'}
                           </div>
                           <div className="text-xs text-muted-foreground truncate mt-0.5">

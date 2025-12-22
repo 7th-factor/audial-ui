@@ -54,7 +54,7 @@ export function CollapsibleCard({
                 >
                   <div className="flex items-center gap-2">
                     {icon}
-                    <span className="text-lg uppercase font-medium">{title}</span>
+                    <span className="text-sm font-semibold">{title}</span>
                   </div>
                   {isOpen ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />

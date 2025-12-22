@@ -381,7 +381,7 @@ export default function ContactDetailPage() {
                         </div>
                         <div className="flex-1 space-y-0.5">
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-sm font-medium leading-tight">{conversation.title}</h3>
+                            <h3 className="text-sm font-medium leading-normal">{conversation.title}</h3>
                             <span className="shrink-0 text-xs text-muted-foreground">{conversation.time}</span>
                           </div>
                           <p className="text-xs leading-relaxed text-muted-foreground">{conversation.description}</p>

@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyFirebaseToken } from '@/lib/firebase/admin';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 
 interface TokenExchangeRequest {
   firebase_token: string;
@@ -33,10 +33,14 @@ interface TokenExchangeResponse {
 function generateAccessToken(
   userId: string,
   email: string,
-  expiresIn: string = '1h'
+  expiresInSeconds: number = 3600 // 1 hour
 ): string {
-  const secret = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || 'dev-secret-change-in-production';
-  
+  const secret = process.env.JWT_SECRET ?? process.env.NEXT_PUBLIC_JWT_SECRET ?? 'dev-secret-change-in-production';
+
+  const options: SignOptions = {
+    expiresIn: expiresInSeconds,
+  };
+
   return jwt.sign(
     {
       sub: userId,
@@ -44,9 +48,7 @@ function generateAccessToken(
       tokenType: 'access',
     },
     secret,
-    {
-      expiresIn,
-    }
+    options
   );
 }
 

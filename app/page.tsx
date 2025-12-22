@@ -426,7 +426,7 @@ function GetStartedContent() {
 
                         {/* Title & Description */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-medium leading-tight mb-1">
+                          <h3 className="text-base font-medium leading-normal mb-1">
                             {action.title}
                           </h3>
                           <p className="text-xs text-muted-foreground leading-snug">

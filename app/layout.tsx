@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Ubuntu, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/lib/firebase/auth-context';
@@ -7,9 +7,10 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import { ObservabilityProvider, ErrorBoundary } from '@/lib/observability/observability-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const ubuntu = Ubuntu({
+  variable: '--font-ubuntu',
   subsets: ['latin'],
+  weight: ['300', '400', '500', '700'],
 });
 
 const geistMono = Geist_Mono({
@@ -29,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${ubuntu.variable} ${geistMono.variable} font-sans antialiased`}>
         <ErrorBoundary>
           <ObservabilityProvider>
             <ThemeProvider

@@ -1,10 +1,12 @@
 "use client"
 
+import Link from "next/link"
 import {
   IconCreditCard,
   IconDotsVertical,
   IconLogout,
   IconNotification,
+  IconSettings,
   IconUserCircle,
 } from "@tabler/icons-react"
 
@@ -53,7 +55,7 @@ export function NavUser({
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="rounded-lg">CN</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-normal">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
                   {user.email}
@@ -74,7 +76,7 @@ export function NavUser({
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-normal">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="text-muted-foreground truncate text-xs">
                     {user.email}
@@ -84,13 +86,23 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <IconSettings />
+                  Settings
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
+              <DropdownMenuItem asChild>
+                <Link href="/settings/account">
+                  <IconUserCircle />
+                  Account
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/billing">
+                  <IconCreditCard />
+                  Billing
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <IconNotification />

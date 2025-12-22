@@ -1,0 +1,6 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer ring -->
+  <circle cx="64" cy="64" r="54" stroke="#5C6670" stroke-width="8" fill="white"/>
+  <!-- Inner filled circle -->
+  <circle cx="64" cy="64" r="24" fill="#E94F4F"/>
+</svg>

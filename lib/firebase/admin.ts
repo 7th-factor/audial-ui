@@ -101,9 +101,38 @@ export async function verifyFirebaseToken(idToken: string): Promise<{
   try {
     const app = getFirebaseAdmin();
     const auth = admin.auth(app);
-    
+
+    // Check if we're in emulator mode
+    const isEmulatorMode = !!process.env.FIREBASE_AUTH_EMULATOR_HOST ||
+      process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR === 'true';
+
+    if (isEmulatorMode) {
+      // For emulator: decode token without verification (emulator tokens don't have 'kid' claim)
+      // The emulator uses unsigned tokens, so we just decode and trust them
+      try {
+        // Try standard verification first (works if emulator host is properly set)
+        const decodedToken = await auth.verifyIdToken(idToken, false);
+        return {
+          uid: decodedToken.uid,
+          email: decodedToken.email || '',
+          email_verified: decodedToken.email_verified || false,
+          name: decodedToken.name,
+          picture: decodedToken.picture,
+        };
+      } catch (emulatorError) {
+        // If verification fails, manually decode the token for emulator
+        console.log('[Firebase Admin] Standard verification failed, trying emulator decode');
+        const decoded = decodeEmulatorToken(idToken);
+        if (decoded) {
+          return decoded;
+        }
+        throw emulatorError;
+      }
+    }
+
+    // Production mode: standard verification
     const decodedToken = await auth.verifyIdToken(idToken);
-    
+
     return {
       uid: decodedToken.uid,
       email: decodedToken.email || '',
@@ -113,6 +142,47 @@ export async function verifyFirebaseToken(idToken: string): Promise<{
     };
   } catch (error) {
     console.error('[Firebase Admin] Failed to verify token:', error);
+    return null;
+  }
+}
+
+/**
+ * Decode emulator token without verification
+ * Emulator tokens are base64 encoded JSON, not proper JWTs
+ */
+function decodeEmulatorToken(token: string): {
+  uid: string;
+  email: string;
+  email_verified: boolean;
+  name?: string;
+  picture?: string;
+} | null {
+  try {
+    // Firebase emulator tokens are JWTs with different signing
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    // Decode the payload (second part)
+    const payload = JSON.parse(
+      Buffer.from(parts[1], 'base64url').toString('utf-8')
+    );
+
+    console.log('[Firebase Admin] Decoded emulator token payload:', {
+      uid: payload.user_id || payload.sub,
+      email: payload.email,
+    });
+
+    return {
+      uid: payload.user_id || payload.sub || payload.uid,
+      email: payload.email || '',
+      email_verified: payload.email_verified || false,
+      name: payload.name,
+      picture: payload.picture,
+    };
+  } catch (error) {
+    console.error('[Firebase Admin] Failed to decode emulator token:', error);
     return null;
   }
 }

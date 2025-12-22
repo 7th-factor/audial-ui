@@ -12,6 +12,7 @@ export interface MockCall {
   source?: 'upload' | 'vapi' | 'bland' | 'twilio' | 'manual' | 'Unknown';
   origin?: 'simulation' | 'real';
   assistantName: string;
+  agentName?: string; // Alias for assistantName
   customerName: string;
   scoreStatus?: 'auto' | 'manual' | 'pending' | 'none';
   overallScore?: number;
@@ -68,6 +69,21 @@ export interface MockCall {
   };
   metrics?: any;
   extractedData?: any;
+  scorecard?: {
+    totalScore: number;
+    maxScore: number;
+    categories: Array<{
+      name: string;
+      score: number;
+      maxScore: number;
+      status: 'pass' | 'fail';
+      criteria?: Array<{
+        name: string;
+        passed: boolean;
+        explanation?: string;
+      }>;
+    }>;
+  };
 }
 
 export const mockCalls: MockCall[] = [
@@ -300,6 +316,57 @@ export const mockCalls: MockCall[] = [
         agentCommitments: ['Send password reset email'],
         followUpRequired: false,
       },
+    },
+    scorecard: {
+      totalScore: 10,
+      maxScore: 13,
+      categories: [
+        {
+          name: 'Greeting & Introduction',
+          score: 3,
+          maxScore: 3,
+          status: 'pass',
+          criteria: [
+            { name: 'Professional greeting', passed: true, explanation: 'Agent greeted customer professionally' },
+            { name: 'Identified self clearly', passed: true, explanation: 'Agent introduced themselves' },
+            { name: 'Asked how to help', passed: true, explanation: 'Agent inquired about customer needs' },
+          ],
+        },
+        {
+          name: 'Problem Resolution',
+          score: 3,
+          maxScore: 4,
+          status: 'fail',
+          criteria: [
+            { name: 'Understood the issue', passed: true, explanation: 'Agent correctly identified the login issue' },
+            { name: 'Provided solution', passed: true, explanation: 'Password reset solution offered' },
+            { name: 'Verified resolution', passed: true, explanation: 'Agent confirmed solution worked' },
+            { name: 'Offered alternatives', passed: false, explanation: 'Could have offered security tips or 2FA setup' },
+          ],
+        },
+        {
+          name: 'Communication Quality',
+          score: 2,
+          maxScore: 3,
+          status: 'fail',
+          criteria: [
+            { name: 'Clear explanations', passed: true, explanation: 'Agent explained steps clearly' },
+            { name: 'Active listening', passed: true, explanation: 'Agent acknowledged customer concerns' },
+            { name: 'Empathy shown', passed: false, explanation: 'Could have shown more empathy for frustration' },
+          ],
+        },
+        {
+          name: 'Closing',
+          score: 2,
+          maxScore: 3,
+          status: 'fail',
+          criteria: [
+            { name: 'Asked if anything else needed', passed: true, explanation: 'Agent asked about additional needs' },
+            { name: 'Professional goodbye', passed: true, explanation: 'Agent ended call professionally' },
+            { name: 'Summarized actions taken', passed: false, explanation: 'Did not summarize what was done' },
+          ],
+        },
+      ],
     },
   },
   {
