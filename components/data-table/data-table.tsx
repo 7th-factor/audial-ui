@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -35,6 +36,8 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean
   /** Custom empty state configuration */
   emptyState?: EmptyStateProps
+  /** Sync filters to URL (default: false) */
+  syncToUrl?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -46,11 +49,91 @@ export function DataTable<TData, TValue>({
   facetedFilters,
   isLoading = false,
   emptyState,
+  syncToUrl = false,
 }: DataTableProps<TData, TValue>) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Parse initial filters from URL if syncToUrl is enabled
+  const getInitialFilters = React.useCallback((): ColumnFiltersState => {
+    if (!syncToUrl) return []
+    const filters: ColumnFiltersState = []
+    searchParams.forEach((value, key) => {
+      if (key.startsWith("filter_")) {
+        const columnId = key.slice(7) // Remove "filter_" prefix
+        const values = value.includes(",") ? value.split(",") : [value]
+        filters.push({ id: columnId, value: values })
+      } else if (key === "q" && searchColumnId) {
+        filters.push({ id: searchColumnId, value })
+      }
+    })
+    return filters
+  }, [syncToUrl, searchParams, searchColumnId])
+
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(getInitialFilters)
   const [sorting, setSorting] = React.useState<SortingState>([])
+
+  // Sync filters to URL when they change
+  const syncFiltersToUrl = React.useCallback(
+    (filters: ColumnFiltersState) => {
+      if (!syncToUrl) return
+
+      const params = new URLSearchParams()
+
+      // Preserve non-filter params
+      searchParams.forEach((value, key) => {
+        if (!key.startsWith("filter_") && key !== "q") {
+          params.set(key, value)
+        }
+      })
+
+      // Add current filters
+      filters.forEach((filter) => {
+        if (filter.id === searchColumnId) {
+          // Search column goes to "q" param
+          const value = String(filter.value)
+          if (value) params.set("q", value)
+        } else {
+          // Other filters go to "filter_" prefixed params
+          const value = Array.isArray(filter.value)
+            ? filter.value.join(",")
+            : String(filter.value)
+          if (value) params.set(`filter_${filter.id}`, value)
+        }
+      })
+
+      const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname
+      router.replace(newUrl, { scroll: false })
+    },
+    [syncToUrl, pathname, router, searchParams, searchColumnId]
+  )
+
+  // Debounce URL updates
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const handleColumnFiltersChange = React.useCallback(
+    (updater: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
+      setColumnFilters((old) => {
+        const newFilters = typeof updater === "function" ? updater(old) : updater
+
+        if (syncToUrl) {
+          if (timeoutRef.current) clearTimeout(timeoutRef.current)
+          timeoutRef.current = setTimeout(() => syncFiltersToUrl(newFilters), 300)
+        }
+
+        return newFilters
+      })
+    },
+    [syncToUrl, syncFiltersToUrl]
+  )
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
 
   const onSelectionChangeRef = React.useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
@@ -67,7 +150,7 @@ export function DataTable<TData, TValue>({
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
