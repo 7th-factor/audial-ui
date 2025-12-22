@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import React from "react" // Import React explicitly
+import * as React from "react"
+import { useState, useMemo, useCallback } from "react"
 import {
   IconRobot,
   IconSettings,
@@ -21,6 +21,26 @@ import {
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
+import { SaveStatusIndicator } from "@/components/save-status-indicator"
+import { useAutosave } from "@/lib/hooks/use-autosave"
+
+interface AgentConfig {
+  temperature: number
+  maxTokens: number
+  speed: number
+  stability: number
+  selectedSkills: string[]
+  conversationStages: {
+    greeting: string
+    informationGathering: string
+    problemSolving: string
+    closing: string
+  }
+  selectedTemplate: string
+  controlMode: "simple" | "flow"
+  shouldDo: string[]
+  shouldNotDo: string[]
+}
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,22 +54,20 @@ import { NamedAvatar } from "@/components/named-avatar"
 import { Checkbox } from "@/components/ui/checkbox" // Import Checkbox
 
 export default function AgentPage() {
+  // Core config state (tracked by autosave)
   const [temperature, setTemperature] = useState([0.7])
   const [maxTokens, setMaxTokens] = useState([2048])
   const [speed, setSpeed] = useState([1.0])
   const [stability, setStability] = useState([0.5])
-
-  const [selectedSkills, setSelectedSkills] = React.useState<string[]>(["handle-support", "qualify-leads"])
-  const [conversationStages, setConversationStages] = React.useState({
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(["handle-support", "qualify-leads"])
+  const [conversationStages, setConversationStages] = useState({
     greeting: "Hi! I'm here to help you today. What can I assist you with?",
     informationGathering: "Could you tell me more about what you're looking for?",
     problemSolving: "Let me help you with that.",
     closing: "Is there anything else I can help you with today?",
   })
-
   const [selectedTemplate, setSelectedTemplate] = useState("support")
   const [controlMode, setControlMode] = useState<"simple" | "flow">("simple")
-  const [advancedMode, setAdvancedMode] = useState(false)
   const [shouldDo, setShouldDo] = useState([
     "Greet customers warmly",
     "Ask clarifying questions",
@@ -60,8 +78,45 @@ export default function AgentPage() {
     "Share personal information",
     "Use offensive language",
   ])
+
+  // UI-only state (not tracked by autosave)
+  const [advancedMode, setAdvancedMode] = useState(false)
   const [newShouldDo, setNewShouldDo] = useState("")
   const [newShouldNotDo, setNewShouldNotDo] = useState("")
+
+  // Consolidate config for autosave
+  const agentConfig = useMemo<AgentConfig>(
+    () => ({
+      temperature: temperature[0],
+      maxTokens: maxTokens[0],
+      speed: speed[0],
+      stability: stability[0],
+      selectedSkills,
+      conversationStages,
+      selectedTemplate,
+      controlMode,
+      shouldDo,
+      shouldNotDo,
+    }),
+    [temperature, maxTokens, speed, stability, selectedSkills, conversationStages, selectedTemplate, controlMode, shouldDo, shouldNotDo]
+  )
+
+  // Save function (would connect to API in production)
+  const handleSave = useCallback(async (config: AgentConfig) => {
+    // TODO: Replace with actual API call
+    // await api.updateAgentConfig(config)
+    console.log("Saving agent config:", config)
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }, [])
+
+  // Autosave hook
+  const { status, lastSaved } = useAutosave({
+    data: agentConfig,
+    onSave: handleSave,
+    debounceMs: 1000,
+    enabled: true,
+  })
 
   return (
     <PageLayout
@@ -69,9 +124,9 @@ export default function AgentPage() {
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <SaveStatusIndicator status={status} lastSaved={lastSaved} />
           <Button variant="outline">Test Agent</Button>
-          <Button>Save Changes</Button>
         </div>
       }
     >
