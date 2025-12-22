@@ -17,6 +17,8 @@ import {
   IconTarget,
   IconChevronDown,
   IconChevronUp,
+  IconApps,
+  IconCopy,
 } from "@tabler/icons-react"
 
 import { PageLayout } from "@/components/page-layout"
@@ -51,7 +53,10 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { NamedAvatar } from "@/components/named-avatar"
-import { Checkbox } from "@/components/ui/checkbox" // Import Checkbox
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { ColorInput } from "@/components/ui/color-input"
+import { toast } from "sonner"
 
 export default function AgentPage() {
   // Core config state (tracked by autosave)
@@ -123,12 +128,7 @@ export default function AgentPage() {
       title="Agent"
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
-      actions={
-        <div className="flex items-center gap-3">
-          <SaveStatusIndicator status={status} lastSaved={lastSaved} />
-          <Button variant="outline">Test Agent</Button>
-        </div>
-      }
+      actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
     >
       <div className="px-4 lg:px-6">
         <Tabs defaultValue="general" className="w-full p-2 bg-muted">
@@ -156,6 +156,10 @@ export default function AgentPage() {
             <TabsTrigger value="scorecard">
               <IconChartBar className="size-4" />
               Scorecard
+            </TabsTrigger>
+            <TabsTrigger value="widget">
+              <IconApps className="size-4" />
+              Web Widget
             </TabsTrigger>
           </TabsList>
 
@@ -1208,6 +1212,136 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
                     <p className="text-xs text-muted-foreground">Create weekly performance reports</p>
                   </div>
                   <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="widget" className="mt-6 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Widget Type</CardTitle>
+                <CardDescription>Choose how users can interact with your agent</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup defaultValue="both" className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="chat" id="chat" />
+                    <Label htmlFor="chat">Chat Only</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="voice" id="voice" />
+                    <Label htmlFor="voice">Voice Only</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="both" id="both" />
+                    <Label htmlFor="both">Both</Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Customize how the widget looks on your website</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="position">Position</Label>
+                    <Select defaultValue="right">
+                      <SelectTrigger id="position">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">Bottom Left</SelectItem>
+                        <SelectItem value="right">Bottom Right</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="side-spacing">Side Spacing</Label>
+                    <div className="relative">
+                      <Input id="side-spacing" type="number" defaultValue="20" className="pr-8" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bottom-spacing">Bottom Spacing</Label>
+                    <div className="relative">
+                      <Input id="bottom-spacing" type="number" defaultValue="20" className="pr-8" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>Primary Color</Label>
+                    <ColorInput
+                      value="#6366f1"
+                      onChange={() => {}}
+                      onReset={() => {}}
+                      placeholder="#6366f1"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="agent-display-name">Display Name</Label>
+                    <Input id="agent-display-name" placeholder="Sarah" defaultValue="Sarah" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="widget-description">Widget Description</Label>
+                  <Textarea
+                    id="widget-description"
+                    placeholder="How can I help you today?"
+                    defaultValue="Hi! I'm here to help you with any questions about our product."
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Embed Code</CardTitle>
+                <CardDescription>
+                  Add this code to your website before the closing &lt;/body&gt; tag
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{`(function (d, t) {
+  if (typeof window === 'undefined') return;
+  var v = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+  v.onload = function () {
+    window.audial.loadWidget({
+      agentId: 'agent_abc123xyz',
+      apiKey: 'pk_live_xyz789ghi012',
+    });
+  };
+  v.type = "module";
+  v.src = "https://app.audial.co/widget/bundle.mjs";
+  s.parentNode.insertBefore(v, s);
+})(document, 'script');`}</code>
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="absolute top-2 right-2 h-8 w-8 p-0 text-slate-400 hover:text-slate-50"
+                    onClick={() => toast.success("Embed code copied to clipboard")}
+                  >
+                    <IconCopy className="size-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

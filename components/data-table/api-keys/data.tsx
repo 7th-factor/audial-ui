@@ -1,4 +1,19 @@
-import { IconKey, IconKeyOff, IconClock, IconShield, IconEye, IconPencil, IconTrash } from "@tabler/icons-react"
+import { IconKey, IconKeyOff, IconClock, IconShield, IconEye, IconPencil, IconTrash, IconWorld, IconLock } from "@tabler/icons-react"
+
+export const keyTypes = [
+  {
+    value: "public",
+    label: "Public",
+    icon: IconWorld,
+    description: "For client-side use in web widgets and browser applications",
+  },
+  {
+    value: "private",
+    label: "Private",
+    icon: IconLock,
+    description: "For server-side use with full API access",
+  },
+]
 
 export const statuses = [
   {

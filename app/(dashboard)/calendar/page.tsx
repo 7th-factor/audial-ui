@@ -21,6 +21,7 @@ import { NamedAvatarGroup, NamedAvatar } from "@/components/named-avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Calendar } from "@/components/ui/calendar"
 import { Switch } from "@/components/ui/switch"
+import { NewEventDialog } from "@/components/calendar"
 import { cn } from "@/lib/utils"
 
 interface Attendee {
@@ -337,17 +338,19 @@ function CalendarSidebar({
 export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [calendars, setCalendars] = useState(connectedCalendars)
+  const [showNewDialog, setShowNewDialog] = useState(false)
 
   const handleCalendarToggle = (id: string) => {
     setCalendars((prev) => prev.map((cal) => (cal.id === id ? { ...cal, enabled: !cal.enabled } : cal)))
   }
 
   return (
+    <>
     <PageLayout
       title="Calendar"
       description="View and manage your schedule."
       icon={IconCalendar}
-      actions={<Button>New Event</Button>}
+      actions={<Button onClick={() => setShowNewDialog(true)}>New Event</Button>}
     >
       <div className="flex gap-6 px-4 lg:px-6">
         {/* Left Sidebar */}
@@ -387,5 +390,12 @@ export default function CalendarPage() {
         </div>
       </div>
     </PageLayout>
+
+    <NewEventDialog
+      open={showNewDialog}
+      onOpenChange={setShowNewDialog}
+      defaultDate={selectedDate}
+    />
+    </>
   )
 }
