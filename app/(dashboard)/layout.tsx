@@ -1,8 +1,6 @@
 import type React from "react"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SiteHeader } from "@/components/site-header"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AuthGuard } from "@/lib/auth/auth-guard"
+import { DashboardShell } from "@/components/dashboard-shell"
 
 export default function DashboardLayout({
   children,
@@ -11,28 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-background focus:text-foreground focus:rounded-md focus:shadow-lg focus:top-4 focus:left-4"
-      >
-        Skip to main content
-      </a>
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-width": "calc(var(--spacing) * 56)",
-            "--header-height": "calc(var(--spacing) * 12)",
-          } as React.CSSProperties
-        }
-      >
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="@container/main flex-1 overflow-y-auto">{children}</div>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <DashboardShell>{children}</DashboardShell>
     </AuthGuard>
   )
 }
