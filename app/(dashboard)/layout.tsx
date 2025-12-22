@@ -11,6 +11,12 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-background focus:text-foreground focus:rounded-md focus:shadow-lg focus:top-4 focus:left-4"
+      >
+        Skip to main content
+      </a>
       <SidebarProvider
         style={
           {
