@@ -18,12 +18,15 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 
+import type { Row } from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/skeletons"
 import { EmptyState, type EmptyStateProps } from "@/components/empty-state"
+import { useIsMobile } from "@/lib/hooks/use-mobile"
 
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar, type FacetedFilterConfig } from "./data-table-toolbar"
+import { MobileCardList } from "./mobile-card-list"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -38,6 +41,10 @@ interface DataTableProps<TData, TValue> {
   emptyState?: EmptyStateProps
   /** Sync filters to URL (default: false) */
   syncToUrl?: boolean
+  /** Render function for mobile card view */
+  renderMobileCard?: (row: Row<TData>) => React.ReactNode
+  /** Click handler for mobile card */
+  onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -50,7 +57,10 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   emptyState,
   syncToUrl = false,
+  renderMobileCard,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
+  const isMobile = useIsMobile()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -203,7 +213,27 @@ export function DataTable<TData, TValue>({
       />
       {isEmpty && emptyState ? (
         <EmptyState {...emptyState} />
+      ) : isMobile && renderMobileCard ? (
+        // Mobile card view
+        <>
+          {table.getRowModel().rows.length > 0 ? (
+            <MobileCardList
+              table={table}
+              renderCard={renderMobileCard}
+              onCardClick={onRowClick}
+              selectable={true}
+            />
+          ) : (
+            <EmptyState
+              title="No results found"
+              description="Try adjusting your search or filter criteria."
+              variant="no-results"
+            />
+          )}
+          <DataTablePagination table={table} />
+        </>
       ) : (
+        // Desktop table view
         <>
           <div className="rounded-md border">
             <Table>
