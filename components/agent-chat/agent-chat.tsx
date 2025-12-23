@@ -56,6 +56,13 @@ export function AgentChat({
     }
   }, [input])
 
+  // Restore focus when loading completes (textarea was disabled during loading)
+  useEffect(() => {
+    if (!isLoading) {
+      textareaRef.current?.focus()
+    }
+  }, [isLoading])
+
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault()
