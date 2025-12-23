@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { LucideIcon } from 'lucide-react';
+import type { Icon as TablerIcon } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,7 +13,7 @@ import { KanbanCard } from './kanban-card';
 interface KanbanColumnProps {
   id: string;
   title: string;
-  icon: LucideIcon;
+  icon: TablerIcon;
   tasks: Task[];
 }
 

@@ -8,18 +8,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Sparkles,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  Shield,
-  Search,
-  BookOpen,
-  Play,
-  Clock,
-  Phone,
-  type LucideIcon,
-} from "lucide-react";
+  IconSparkles,
+  IconChevronLeft,
+  IconChevronRight,
+  IconTrendingUp,
+  IconShield,
+  IconSearch,
+  IconBook,
+  IconPlayerPlay,
+  IconClock,
+  IconPhone,
+  type Icon as TablerIcon,
+} from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -30,7 +30,7 @@ import {
 } from "@/lib/data/getting-started-actions";
 
 interface CarouselSlide {
-  icon: LucideIcon;
+  icon: TablerIcon;
   title: string;
   description: string;
   highlight: string;
@@ -39,7 +39,7 @@ interface CarouselSlide {
 
 const CAROUSEL_SLIDES: CarouselSlide[] = [
   {
-    icon: Sparkles,
+    icon: IconSparkles,
     title: "Getting Started",
     description:
       "Set up your AI agent in minutes. Configure phone numbers, customize your agent, and start handling conversations immediately",
@@ -47,7 +47,7 @@ const CAROUSEL_SLIDES: CarouselSlide[] = [
     gradient: "from-indigo-500/10 via-violet-500/10 to-purple-500/10",
   },
   {
-    icon: Phone,
+    icon: IconPhone,
     title: "Connect & Communicate",
     description:
       "Assign phone numbers to your agent and enable direct communication with your customers through voice calls",
@@ -55,7 +55,7 @@ const CAROUSEL_SLIDES: CarouselSlide[] = [
     gradient: "from-green-500/10 via-emerald-500/10 to-teal-500/10",
   },
   {
-    icon: TrendingUp,
+    icon: IconTrendingUp,
     title: "Train & Optimize",
     description:
       "Train your agent with custom instructions, upload knowledge bases, and configure tools to enhance performance",
@@ -63,7 +63,7 @@ const CAROUSEL_SLIDES: CarouselSlide[] = [
     gradient: "from-blue-500/10 via-purple-500/10 to-pink-500/10",
   },
   {
-    icon: Shield,
+    icon: IconShield,
     title: "Integrate & Extend",
     description:
       "Connect calendars, APIs, and third-party services. Extend your agent's capabilities with custom integrations",
@@ -137,11 +137,11 @@ function HeroCarousel() {
           <div className="hidden lg:block w-80">
             <div className="relative group cursor-pointer rounded-lg overflow-hidden border bg-muted/50 hover:bg-muted transition-all shadow-md">
               <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
-                <Play className="h-12 w-12 text-primary/40 group-hover:text-primary/60 transition-colors" />
+                <IconPlayerPlay className="size-12 text-primary/40 group-hover:text-primary/60 transition-colors" />
               </div>
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/90 text-white shadow-lg">
-                  <Play className="h-7 w-7 ml-1" fill="currentColor" />
+                  <IconPlayerPlay className="size-7 ml-1" fill="currentColor" />
                 </div>
               </div>
               <div className="absolute bottom-3 right-3 text-xs font-medium text-white bg-black/70 px-2.5 py-1 rounded">
@@ -184,7 +184,7 @@ function HeroCarousel() {
               onClick={prevSlide}
               aria-label="Previous slide"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <IconChevronLeft className="size-4" />
             </Button>
             <Button
               variant="outline"
@@ -193,14 +193,14 @@ function HeroCarousel() {
               onClick={nextSlide}
               aria-label="Next slide"
             >
-              <ChevronRight className="h-4 w-4" />
+              <IconChevronRight className="size-4" />
             </Button>
           </div>
 
           {/* Auto-play indicator */}
           {isAutoPlaying && (
             <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 animate-pulse" />
+              <IconClock className="size-3 animate-pulse" />
               <span>Auto-playing</span>
             </div>
           )}
@@ -262,7 +262,7 @@ export default function GetStartedPage() {
 
   return (
     <PageLayout
-      icon={Sparkles}
+      icon={IconSparkles}
       title="Get Started"
       description="Set up your agent, configure phone numbers, and start handling conversations"
       actions={
@@ -270,7 +270,7 @@ export default function GetStartedPage() {
           variant="outline"
           onClick={() => window.open("https://docs.audial.ai", "_blank")}
         >
-          <BookOpen className="h-4 w-4 mr-2" />
+          <IconBook className="size-4 mr-2" />
           View Documentation
         </Button>
       }
@@ -296,7 +296,7 @@ export default function GetStartedPage() {
             </Tabs>
 
             <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search features..."

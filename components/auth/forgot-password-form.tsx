@@ -2,12 +2,15 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { AuthFormWrapper } from './auth-form-wrapper';
 import { useAuth } from '@/lib/firebase/auth-context';
+import { forgotPasswordSchema, type ForgotPasswordFormValues } from '@/lib/validations/auth';
 
 // Check if Firebase emulator is enabled
 // Returns false during SSR to prevent hydration mismatch
@@ -17,36 +20,49 @@ const isUsingEmulator = (): boolean => {
 };
 
 export function ForgotPasswordForm() {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const { resetPassword, loading } = useAuth();
+
+  const form = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: '',
+    },
+  });
 
   // Track client-side mount to prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const onSubmit = async (data: ForgotPasswordFormValues) => {
+    setServerError('');
     setSuccess(false);
 
     try {
-      const { error } = await resetPassword(email);
+      const { error } = await resetPassword(data.email);
       if (error) {
-        setError(error.message);
+        setServerError(error.message);
         toast.error(error.message);
       } else {
+        setSubmittedEmail(data.email);
         setSuccess(true);
         toast.success('Password reset email sent! Check your inbox.');
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setError(errorMessage);
+      setServerError(errorMessage);
       toast.error(errorMessage);
     }
+  };
+
+  const handleTryAgain = () => {
+    setSuccess(false);
+    setSubmittedEmail('');
+    form.reset();
   };
 
   if (success) {
@@ -56,13 +72,13 @@ export function ForgotPasswordForm() {
           <div className="flex flex-col items-center text-center">
             <h1 className="text-2xl font-bold">Check your email</h1>
             <p className="text-muted-foreground text-balance">
-              We&apos;ve sent a password reset link to {email}
+              We&apos;ve sent a password reset link to {submittedEmail}
             </p>
           </div>
           <div className="text-sm text-muted-foreground">
             <p>Didn&apos;t receive the email? Check your spam folder or try again.</p>
           </div>
-          <Button onClick={() => setSuccess(false)} variant="outline" className="w-full">
+          <Button onClick={handleTryAgain} variant="outline" className="w-full">
             Try again
           </Button>
           <div className="text-center text-sm text-muted-foreground">
@@ -77,7 +93,7 @@ export function ForgotPasswordForm() {
 
   return (
     <AuthFormWrapper>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center text-center">
             <h1 className="text-2xl font-bold">Reset password</h1>
@@ -86,7 +102,7 @@ export function ForgotPasswordForm() {
             </p>
             {isMounted && isUsingEmulator() && (
               <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 px-2 py-1 rounded">
-                🔥 Firebase Emulator Active
+                Firebase Emulator Active
               </div>
             )}
           </div>
@@ -96,15 +112,17 @@ export function ForgotPasswordForm() {
               id="email"
               type="email"
               placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              {...form.register('email')}
               disabled={loading}
+              aria-invalid={!!form.formState.errors.email}
             />
+            {form.formState.errors.email && (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            )}
           </div>
-          {error && (
+          {serverError && (
             <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
+              {serverError}
             </div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
@@ -121,4 +139,3 @@ export function ForgotPasswordForm() {
     </AuthFormWrapper>
   );
 }
-

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import type { Table } from "@tanstack/react-table"
-import { X } from "lucide-react"
+import { IconX } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,7 +61,7 @@ export function DataTableToolbar<TData>({
         {isFiltered && (
           <Button variant="ghost" onClick={() => table.resetColumnFilters()} className="h-8 px-2 lg:px-3">
             Reset
-            <X />
+            <IconX className="size-4" />
           </Button>
         )}
       </div>

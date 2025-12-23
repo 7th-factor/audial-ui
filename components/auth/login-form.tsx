@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { AuthFormWrapper } from './auth-form-wrapper';
 import { useAuth } from '@/lib/firebase/auth-context';
+import { loginSchema, type LoginFormValues } from '@/lib/validations/auth';
 
 // Dev mode test credentials (only available in development on localhost)
 const DEV_TEST_CREDENTIALS = {
@@ -36,12 +38,17 @@ const isUsingEmulator = (): boolean => {
 };
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
-  const router = useRouter();
   const { signIn, signInWithGoogle, signInWithMicrosoft, loading } = useAuth();
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
   // Get returnUrl from query params
   const getReturnUrl = (): string => {
@@ -74,21 +81,20 @@ export function LoginForm() {
   // Auto-fill test credentials when Firebase emulator is active
   useEffect(() => {
     if (isUsingEmulator()) {
-      setEmail(DEV_TEST_CREDENTIALS.email);
-      setPassword(DEV_TEST_CREDENTIALS.password);
+      form.setValue('email', DEV_TEST_CREDENTIALS.email);
+      form.setValue('password', DEV_TEST_CREDENTIALS.password);
     }
-  }, []);
+  }, [form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); // Clear previous errors
+  const onSubmit = async (data: LoginFormValues) => {
+    setServerError(''); // Clear previous errors
 
     try {
       console.log("[LoginForm] Submitting login form");
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(data.email, data.password);
       if (error) {
         console.error("[LoginForm] Login error:", error.message);
-        setError(error.message);
+        setServerError(error.message);
         toast.error(error.message);
       } else {
         console.log("[LoginForm] Login successful, waiting for auth state...");
@@ -100,7 +106,7 @@ export function LoginForm() {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       console.error("[LoginForm] Unexpected error:", errorMessage, error);
-      setError(errorMessage);
+      setServerError(errorMessage);
       toast.error(errorMessage);
     }
   };
@@ -135,7 +141,7 @@ export function LoginForm() {
 
   return (
     <AuthFormWrapper>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center text-center">
             <h1 className="text-2xl font-bold">Welcome back</h1>
@@ -143,7 +149,7 @@ export function LoginForm() {
             {isMounted && isUsingEmulator() && (
               <div className="mt-2 flex flex-col gap-1 items-center">
                 <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 px-2 py-1 rounded">
-                  🔥 Firebase Emulator Active
+                  Firebase Emulator Active
                 </div>
                 <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 px-2 py-1 rounded">
                   Dev Mode: Test credentials auto-filled
@@ -157,11 +163,13 @@ export function LoginForm() {
               id="email"
               type="email"
               placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              {...form.register('email')}
               disabled={loading}
+              aria-invalid={!!form.formState.errors.email}
             />
+            {form.formState.errors.email && (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            )}
           </div>
           <div className="grid gap-3">
             <div className="flex items-center justify-between">
@@ -176,15 +184,17 @@ export function LoginForm() {
             <Input
               id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              {...form.register('password')}
               disabled={loading}
+              aria-invalid={!!form.formState.errors.password}
             />
+            {form.formState.errors.password && (
+              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+            )}
           </div>
-          {error && (
+          {serverError && (
             <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
+              {serverError}
             </div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
@@ -251,4 +261,3 @@ export function LoginForm() {
     </AuthFormWrapper>
   );
 }
-

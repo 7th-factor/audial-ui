@@ -54,3 +54,4 @@ elif [ "$HAS_DEV" = true ]; then
   tail_with_prefix "$DEV_LOG" "[DEV]"
 fi
 
+

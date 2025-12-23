@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { IconChartBar } from '@tabler/icons-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { AnalyticsHeaderActions } from '@/components/analytics/analytics-header-actions';
@@ -23,7 +23,7 @@ export default function AnalyticsPage() {
 
   return (
     <PageLayout
-      icon={BarChart3}
+      icon={IconChartBar}
       title="Analytics"
       description="Comprehensive call analytics and performance metrics"
       data-testid="analytics-page"

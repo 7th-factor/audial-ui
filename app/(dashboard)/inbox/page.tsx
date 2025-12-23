@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Phone, Eye, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { IconPhone, IconEye, IconPhoneIncoming, IconPhoneOutgoing } from '@tabler/icons-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -113,9 +113,9 @@ const columns: ColumnDef<MockCall>[] = [
           {/* Direction icon */}
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
             {isInbound ? (
-              <PhoneIncoming className="h-4 w-4 text-muted-foreground" />
+              <IconPhoneIncoming className="size-4 text-muted-foreground" />
             ) : (
-              <PhoneOutgoing className="h-4 w-4 text-muted-foreground" />
+              <IconPhoneOutgoing className="size-4 text-muted-foreground" />
             )}
           </div>
           {/* From / To info */}
@@ -240,7 +240,7 @@ const columns: ColumnDef<MockCall>[] = [
       return (
         <Button variant="ghost" size="sm" asChild className="h-8">
           <Link href={`/inbox/${call.id}`}>
-            <Eye className="h-4 w-4 mr-2" />
+            <IconEye className="size-4 mr-2" />
             View
           </Link>
         </Button>
@@ -268,7 +268,7 @@ export default function InboxPage() {
     <PageLayout
       title="Inbox"
       description="View and manage all call interactions"
-      icon={Phone}
+      icon={IconPhone}
     >
       <div className="px-4 lg:px-6">
         <DataTable
@@ -277,6 +277,15 @@ export default function InboxPage() {
           searchColumnId="customer"
           searchPlaceholder="Search by customer name or phone..."
           facetedFilters={facetedFilters}
+          emptyState={{
+            icon: IconPhone,
+            title: "No calls yet",
+            description: "Connect a phone number to start receiving and making calls.",
+            primaryAction: {
+              label: "Connect phone number",
+              onClick: () => console.log("Connect phone"),
+            },
+          }}
         />
       </div>
     </PageLayout>

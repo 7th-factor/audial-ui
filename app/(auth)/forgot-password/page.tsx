@@ -6,3 +6,4 @@ export default function ForgotPasswordPage() {
 
 export const dynamic = "force-dynamic";
 
+

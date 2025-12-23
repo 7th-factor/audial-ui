@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { AuthFormWrapper } from './auth-form-wrapper';
 import { useAuth } from '@/lib/firebase/auth-context';
+import { signupSchema, type SignupFormValues } from '@/lib/validations/auth';
 
 // Dev mode test credentials (only available when Firebase emulator is active)
 const DEV_TEST_CREDENTIALS = {
@@ -25,13 +27,18 @@ const isUsingEmulator = (): boolean => {
 };
 
 export function SignupForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
-  const router = useRouter();
   const { signUp, signInWithGoogle, signInWithMicrosoft, loading } = useAuth();
+
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      displayName: '',
+      email: '',
+      password: '',
+    },
+  });
 
   // Track client-side mount to prevent hydration mismatch
   useEffect(() => {
@@ -41,25 +48,24 @@ export function SignupForm() {
   // Auto-fill test credentials when Firebase emulator is active
   useEffect(() => {
     if (isUsingEmulator()) {
-      setEmail(DEV_TEST_CREDENTIALS.email);
-      setPassword(DEV_TEST_CREDENTIALS.password);
-      setDisplayName(DEV_TEST_CREDENTIALS.displayName);
+      form.setValue('email', DEV_TEST_CREDENTIALS.email);
+      form.setValue('password', DEV_TEST_CREDENTIALS.password);
+      form.setValue('displayName', DEV_TEST_CREDENTIALS.displayName);
     }
-  }, []);
+  }, [form]);
 
   const handleRedirect = async () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     window.location.href = '/';
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const onSubmit = async (data: SignupFormValues) => {
+    setServerError('');
 
     try {
-      const { error } = await signUp(email, password, displayName || undefined);
+      const { error } = await signUp(data.email, data.password, data.displayName || undefined);
       if (error) {
-        setError(error.message);
+        setServerError(error.message);
         toast.error(error.message);
       } else {
         toast.success('Account created! Redirecting...');
@@ -67,7 +73,7 @@ export function SignupForm() {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setError(errorMessage);
+      setServerError(errorMessage);
       toast.error(errorMessage);
     }
   };
@@ -102,7 +108,7 @@ export function SignupForm() {
 
   return (
     <AuthFormWrapper>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center text-center">
             <h1 className="text-2xl font-bold">Create an account</h1>
@@ -110,7 +116,7 @@ export function SignupForm() {
             {isMounted && isUsingEmulator() && (
               <div className="mt-2 flex flex-col gap-1 items-center">
                 <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 px-2 py-1 rounded">
-                  🔥 Firebase Emulator Active
+                  Firebase Emulator Active
                 </div>
                 <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 px-2 py-1 rounded">
                   Dev Mode: Test credentials auto-filled
@@ -124,8 +130,7 @@ export function SignupForm() {
               id="displayName"
               type="text"
               placeholder="John Doe"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              {...form.register('displayName')}
               disabled={loading}
             />
           </div>
@@ -135,30 +140,33 @@ export function SignupForm() {
               id="email"
               type="email"
               placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              {...form.register('email')}
               disabled={loading}
+              aria-invalid={!!form.formState.errors.email}
             />
+            {form.formState.errors.email && (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            )}
           </div>
           <div className="grid gap-3">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              {...form.register('password')}
               disabled={loading}
-              minLength={6}
+              aria-invalid={!!form.formState.errors.password}
             />
+            {form.formState.errors.password && (
+              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               Password must be at least 6 characters
             </p>
           </div>
-          {error && (
+          {serverError && (
             <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
+              {serverError}
             </div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
@@ -225,4 +233,3 @@ export function SignupForm() {
     </AuthFormWrapper>
   );
 }
-

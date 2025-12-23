@@ -10,6 +10,21 @@ const nextConfig: NextConfig = {
     root: process.cwd(), // Use current working directory as root (audial-admin)
   },
 
+  // CORS headers for widget bundle (allows embedding on any domain)
+  async headers() {
+    return [
+      {
+        source: '/widget/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ];
+  },
+
   // Optimize package imports to reduce bundle size
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],

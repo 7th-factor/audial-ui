@@ -3,7 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 
-import { statuses, permissions as permissionsList } from "./data"
+import { statuses, permissions as permissionsList, keyTypes } from "./data"
 import type { ApiKey } from "./schema"
 import { DataTableColumnHeader } from "../data-table-column-header"
 import { DataTableRowActions } from "../data-table-row-actions"
@@ -34,7 +34,38 @@ export const columns: ColumnDef<ApiKey>[] = [
     accessorKey: "name",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
     cell: ({ row }) => {
-      return <span className="font-medium">{row.getValue("name")}</span>
+      const keyType = keyTypes.find((t) => t.value === row.original.type)
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.getValue("name")}</span>
+          {keyType && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              {keyType.icon && <keyType.icon className="size-3" />}
+              {keyType.label}
+            </span>
+          )}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "type",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+    cell: ({ row }) => {
+      const keyType = keyTypes.find((t) => t.value === row.getValue("type"))
+      if (!keyType) return null
+
+      const variant = keyType.value === "private" ? "default" : "secondary"
+
+      return (
+        <Badge variant={variant} className="gap-1">
+          {keyType.icon && <keyType.icon className="size-3" />}
+          {keyType.label}
+        </Badge>
+      )
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
     },
   },
   {

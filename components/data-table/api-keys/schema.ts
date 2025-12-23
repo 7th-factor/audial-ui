@@ -4,6 +4,7 @@ export const apiKeySchema = z.object({
   id: z.string(),
   name: z.string(),
   key: z.string(),
+  type: z.enum(["public", "private"]),
   status: z.string(),
   permissions: z.array(z.string()),
   createdAt: z.string(),
@@ -12,3 +13,4 @@ export const apiKeySchema = z.object({
 })
 
 export type ApiKey = z.infer<typeof apiKeySchema>
+export type ApiKeyType = "public" | "private"

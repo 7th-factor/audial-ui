@@ -15,11 +15,9 @@ import {
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -27,11 +25,6 @@ import {
 } from "@/components/ui/sidebar"
 
 const sidebarConfig = {
-  user: {
-    name: "Emmanuel's Org",
-    email: "emmanuel@sixfacto...",
-    avatar: "/avatars/shadcn.jpg",
-  },
   topNav: [
     {
       title: "Get Started",
@@ -118,9 +111,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           developerNav={sidebarConfig.developerNav}
         />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={sidebarConfig.user} />
-      </SidebarFooter>
     </Sidebar>
   )
 }

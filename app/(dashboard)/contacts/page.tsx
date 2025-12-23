@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table/data-table"
 import { columns } from "@/components/data-table/contacts/columns"
 import { statuses, tags } from "@/components/data-table/contacts/data"
 import { BulkActions, useContactBulkActions } from "@/components/bulk-actions"
+import { NewContactDialog } from "@/components/contacts"
 import type { Contact } from "@/components/data-table/contacts/schema"
 
 const contacts: Contact[] = [
@@ -66,6 +67,7 @@ const contacts: Contact[] = [
 
 export default function ContactsPage() {
   const [selectedRows, setSelectedRows] = React.useState<Contact[]>([])
+  const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   const handleBulkAction = React.useCallback((action: string, rows: Contact[]) => {
     console.log(`Bulk action: ${action}`, rows)
@@ -81,7 +83,7 @@ export default function ContactsPage() {
         actions={bulkActions}
         onClearSelection={() => setSelectedRows([])}
       />
-      <Button>Add Contact</Button>
+      <Button onClick={() => setShowNewDialog(true)}>Add Contact</Button>
     </div>
   )
 
@@ -94,22 +96,38 @@ export default function ContactsPage() {
   )
 
   return (
-    <PageLayout
-      title="Contacts"
-      description="Manage your contacts and relationships."
-      icon={IconUsers}
-      actions={headerActions}
-    >
-      <div className="px-4 lg:px-6">
-        <DataTable
-          columns={columns}
-          data={contacts}
-          onSelectionChange={(rows) => setSelectedRows(rows as Contact[])}
-          searchColumnId="name"
-          searchPlaceholder="Filter contacts..."
-          facetedFilters={facetedFilters}
-        />
-      </div>
-    </PageLayout>
+    <>
+      <PageLayout
+        title="Contacts"
+        description="Manage your contacts and relationships."
+        icon={IconUsers}
+        actions={headerActions}
+      >
+        <div className="px-4 lg:px-6">
+          <DataTable
+            columns={columns}
+            data={contacts}
+            onSelectionChange={(rows) => setSelectedRows(rows as Contact[])}
+            searchColumnId="name"
+            searchPlaceholder="Filter contacts..."
+            facetedFilters={facetedFilters}
+            emptyState={{
+              icon: IconUsers,
+              title: "No contacts",
+              description: "Add your first contact to start building your network.",
+              primaryAction: {
+                label: "Add your first contact",
+                onClick: () => setShowNewDialog(true),
+              },
+            }}
+          />
+        </div>
+      </PageLayout>
+
+      <NewContactDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+      />
+    </>
   )
 }
