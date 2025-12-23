@@ -9,7 +9,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not configured')
+  }
+  return new Stripe(key)
+}
 
 interface CreateSessionRequest {
   planId: string
@@ -32,6 +38,7 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || 'http://localhost:3000'
 
     // Create checkout session with embedded UI mode
+    const stripe = getStripe()
     const session = await stripe.checkout.sessions.create({
       ui_mode: 'embedded',
       customer_email: body.customerEmail,
