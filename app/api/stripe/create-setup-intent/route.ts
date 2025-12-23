@@ -10,7 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not configured')
+  }
+  return new Stripe(key)
+}
 
 interface CreateSetupIntentRequest {
   customerEmail?: string
@@ -19,6 +25,7 @@ interface CreateSetupIntentRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSetupIntentRequest = await request.json()
+    const stripe = getStripe()
 
     // Create or retrieve customer
     let customer: Stripe.Customer | undefined
