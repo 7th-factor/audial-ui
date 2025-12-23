@@ -1,20 +1,51 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { IconApps } from '@tabler/icons-react'
 import { PageLayout } from '@/components/page-layout'
 import { WebWidgetForm } from '@/components/widget-config'
 import { useGetWidgetConfigByAgent } from '@/lib/features/widget'
+import type { WidgetConfig, WidgetConfigPayload } from '@/lib/features/widget'
+import { useDefaultPublicApiKey } from '@/lib/features/api-keys'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSearchParams } from 'next/navigation'
 
+const CONTAINER_ID = 'audial-widget-container'
+const BASE_BACKEND_URL = process.env.NEXT_PUBLIC_API_URL
+
+const generateSnippet = (agentId: string, publicApiKey: string, containerId: string) => `
+  (function(d, t) {
+    var v = d.createElement(t);
+    var s = d.getElementsByTagName(t)[0];
+    v.onload = function () {
+      window.audial.loadWidget({
+        agentId: '${agentId}',
+        apiKey: '${publicApiKey}',
+        baseUrl: '${BASE_BACKEND_URL}',
+        options: {
+          containerId: '${containerId}',
+          previewMode: true,
+          defaultOpen: true,
+          debug: true
+        }
+      });
+    };
+    v.type = "module";
+    v.src = window.location.origin + "/widget/bundle.mjs";
+    s.parentNode.insertBefore(v, s);
+  })(document, 'script');
+`
+
 export default function WidgetPage() {
   const searchParams = useSearchParams()
   // For now, use query param or a default agent ID
   // TODO: Get default agent from account context
   const agentId = searchParams.get('agentId') || ''
+
+  const [isContainerLoaded, setIsContainerLoaded] = useState(false)
 
   const {
     data: widgetConfig,
@@ -23,10 +54,40 @@ export default function WidgetPage() {
     refetch,
   } = useGetWidgetConfigByAgent(agentId)
 
-  // Handle form changes for live preview
-  const handleFormChange = (data: unknown) => {
-    // TODO: Update live preview
-    console.log('Form changed:', data)
+  const { data: defaultPublicApiKey } = useDefaultPublicApiKey()
+
+  const handleContainerRef = (node: HTMLDivElement | null) => {
+    if (node) {
+      setIsContainerLoaded(true)
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!defaultPublicApiKey?.id) return
+    if (!isContainerLoaded) return
+    if (!agentId) return
+
+    const container = document.getElementById(CONTAINER_ID)
+    if (!container) return
+
+    const code = generateSnippet(agentId, defaultPublicApiKey.id, CONTAINER_ID)
+    eval(code)
+  }, [isContainerLoaded, defaultPublicApiKey?.id, agentId])
+
+  const handleDispatchAction = (action: 'update-config', payload: Partial<WidgetConfig>) => {
+    const audial = (window as { audial?: { dispatchAction: (action: string, payload: unknown) => void } }).audial
+    if (!audial) return
+    audial.dispatchAction(action, payload)
+  }
+
+  useEffect(() => {
+    if (!widgetConfig) return
+    handleDispatchAction('update-config', widgetConfig)
+  }, [widgetConfig])
+
+  const handleFormChange = (data: WidgetConfigPayload) => {
+    handleDispatchAction('update-config', data)
   }
 
   if (!agentId) {
@@ -112,13 +173,32 @@ export default function WidgetPage() {
       description="Configure your web widget appearance and embed code."
       icon={IconApps}
     >
-      <div className="px-4 lg:px-6">
-        <WebWidgetForm
-          widgetConfig={widgetConfig}
-          agentId={agentId}
-          onFormChange={handleFormChange}
-          hideHeader
-        />
+      <div className="px-4 lg:px-6 flex flex-col xl:flex-row gap-10 lg:gap-16">
+        <div className="flex-1">
+          <WebWidgetForm
+            widgetConfig={widgetConfig}
+            agentId={agentId}
+            onFormChange={handleFormChange}
+            hideHeader
+          />
+        </div>
+        <div className="min-w-[380px]">
+          <div className="border rounded-lg xl:sticky xl:top-6">
+            <div className="px-4 py-4 border-b">
+              <h3 className="text-[15px] font-semibold">Widget Preview</h3>
+              <p className="text-sm text-muted-foreground">
+                Test your widget configuration in real-time
+              </p>
+            </div>
+            <div className="flex items-center justify-center min-h-[500px]">
+              <div
+                id={CONTAINER_ID}
+                className="min-w-[380px]"
+                ref={handleContainerRef}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </PageLayout>
   )
