@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   PhoneNumberCard,
-  type PhoneNumber,
+  type PhoneNumber as PhoneNumberCardType,
 } from "@/components/settings/phone-number-card"
 import { SearchAndFilter } from "@/components/shared/search-and-filter"
 import { CardGridPagination } from "@/components/shared/card-grid-pagination"
@@ -13,6 +14,7 @@ import {
   IconCircleCheck,
   IconCircleX,
 } from "@tabler/icons-react"
+import { usePhoneNumbers, type PhoneNumber } from "@/lib/api"
 
 // Status options for faceted filter
 const statusOptions = [
@@ -20,83 +22,60 @@ const statusOptions = [
   { value: "inactive", label: "Inactive", icon: IconCircleX },
 ]
 
-// Country options for faceted filter
-const countryOptions = [
-  { value: "US", label: "United States" },
-  { value: "GB", label: "United Kingdom" },
-  { value: "CA", label: "Canada" },
-  { value: "AU", label: "Australia" },
-  { value: "DE", label: "Germany" },
-  { value: "FR", label: "France" },
+// Provider options for faceted filter
+const providerOptions = [
+  { value: "twilio", label: "Twilio" },
+  { value: "vonage", label: "Vonage" },
 ]
 
-// Mock data based on screenshot
-const mockPhoneNumbers: (PhoneNumber & { status: string })[] = [
-  {
-    id: "1",
-    number: "+1 (809) 526 2710",
-    countryCode: "US",
-    label: "Support",
-    isActive: true,
+// Transform API phone number to card format
+function transformPhoneNumber(
+  phoneNumber: PhoneNumber
+): PhoneNumberCardType & { status: string; provider: string } {
+  // Extract country code from the phone number (simple heuristic)
+  const countryCode = phoneNumber.number.startsWith("+1")
+    ? "US"
+    : phoneNumber.number.startsWith("+44")
+      ? "GB"
+      : phoneNumber.number.startsWith("+61")
+        ? "AU"
+        : phoneNumber.number.startsWith("+49")
+          ? "DE"
+          : phoneNumber.number.startsWith("+33")
+            ? "FR"
+            : "US"
+
+  return {
+    id: phoneNumber.id,
+    number: phoneNumber.number,
+    countryCode,
+    label: phoneNumber.name,
+    isActive: true, // API doesn't have active status, assume active
     status: "active",
-  },
-  {
-    id: "2",
-    number: "+1 (809) 526 2711",
-    countryCode: "US",
-    label: "Marketing",
-    isActive: true,
-    status: "active",
-  },
-  {
-    id: "3",
-    number: "+1 (809) 526 2712",
-    countryCode: "US",
-    label: "Sales",
-    isActive: false,
-    status: "inactive",
-  },
-  {
-    id: "4",
-    number: "+44 20 7946 0958",
-    countryCode: "GB",
-    label: "UK Support",
-    isActive: true,
-    status: "active",
-  },
-  {
-    id: "5",
-    number: "+1 (416) 555 0123",
-    countryCode: "CA",
-    label: "Canada Line",
-    isActive: false,
-    status: "inactive",
-  },
-  {
-    id: "6",
-    number: "+1 (809) 526 2713",
-    countryCode: "US",
-    label: "New",
-    isActive: false,
-    status: "inactive",
-  },
-]
+    provider: phoneNumber.provider,
+  }
+}
 
 export default function PhoneNumbersPage() {
-  const [phoneNumbers, setPhoneNumbers] = useState(mockPhoneNumbers)
-  const [filteredData, setFilteredData] = useState(mockPhoneNumbers)
+  const { data: phoneNumbersData, isLoading, error } = usePhoneNumbers()
+
+  const phoneNumbers = useMemo(
+    () => phoneNumbersData?.map(transformPhoneNumber) || [],
+    [phoneNumbersData]
+  )
+
+  const [filteredData, setFilteredData] = useState<
+    (PhoneNumberCardType & { status: string; provider: string })[]
+  >([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  const handleToggle = (id: string, isActive: boolean) => {
-    setPhoneNumbers((prev) =>
-      prev.map((pn) =>
-        pn.id === id
-          ? { ...pn, isActive, status: isActive ? "active" : "inactive" }
-          : pn
-      )
-    )
-  }
+  // Update filtered data when phone numbers load
+  useMemo(() => {
+    if (phoneNumbers.length > 0 && filteredData.length === 0) {
+      setFilteredData(phoneNumbers)
+    }
+  }, [phoneNumbers, filteredData.length])
 
   // Paginated data
   const paginatedData = useMemo(() => {
@@ -111,6 +90,53 @@ export default function PhoneNumbersPage() {
   const handlePageSizeChange = (size: number) => {
     setPageSize(size)
     setCurrentPage(1)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Phone Numbers</h2>
+            <p className="text-sm text-muted-foreground">
+              Manage your phone numbers and availability.
+            </p>
+          </div>
+          <Button disabled>
+            <IconPlus className="mr-2 h-4 w-4" />
+            Get a Number
+          </Button>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Phone Numbers</h2>
+            <p className="text-sm text-muted-foreground">
+              Manage your phone numbers and availability.
+            </p>
+          </div>
+          <Button disabled>
+            <IconPlus className="mr-2 h-4 w-4" />
+            Get a Number
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load phone numbers</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : "An error occurred"}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -141,9 +167,9 @@ export default function PhoneNumbersPage() {
             options: statusOptions,
           },
           {
-            column: "countryCode",
-            title: "Country",
-            options: countryOptions,
+            column: "provider",
+            title: "Provider",
+            options: providerOptions,
           },
         ]}
         onFilteredDataChange={setFilteredData}
@@ -155,7 +181,10 @@ export default function PhoneNumbersPage() {
           <PhoneNumberCard
             key={phoneNumber.id}
             phoneNumber={phoneNumber}
-            onToggle={handleToggle}
+            onToggle={(id, isActive) => {
+              // TODO: Implement phone number toggle with API
+              console.log("Toggle phone number", id, isActive)
+            }}
           />
         ))}
       </div>

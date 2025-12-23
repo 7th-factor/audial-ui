@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import { IconKey, IconPlus, IconWorld, IconLock } from '@tabler/icons-react'
+import { Loader2 } from 'lucide-react'
 
 import { PageLayout } from '@/components/page-layout'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/data-table'
 import { columns } from '@/components/data-table/api-keys/columns'
-import { statuses, permissions, keyTypes } from '@/components/data-table/api-keys/data'
-import type { ApiKey, ApiKeyType } from '@/components/data-table/api-keys/schema'
+import type { CombinedApiKey } from '@/components/data-table/api-keys/schema'
+import { usePrivateKeys, usePublicKeys, type PrivateKey, type PublicKey } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -23,81 +24,87 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-// Mock data for demonstration
-const apiKeys: ApiKey[] = [
-  {
-    id: 'KEY-001',
-    name: 'Production API Key',
-    key: 'audial_live_abc123def456ghi789jkl012',
-    type: 'private',
-    status: 'active',
-    permissions: ['read', 'write', 'delete'],
-    createdAt: '2024-12-01',
-    lastUsed: '2024-12-22',
-    expiresAt: '2025-12-01',
-  },
-  {
-    id: 'KEY-002',
-    name: 'Development Key',
-    key: 'audial_test_xyz789ghi012jkl345mno678',
-    type: 'private',
-    status: 'active',
-    permissions: ['read', 'write'],
-    createdAt: '2024-12-05',
-    lastUsed: '2024-12-21',
-    expiresAt: null,
-  },
-  {
-    id: 'KEY-003',
-    name: 'Web Widget Key',
-    key: 'audial_pub_widget123abc456def789',
-    type: 'public',
-    status: 'active',
-    permissions: ['read'],
-    createdAt: '2024-12-10',
-    lastUsed: '2024-12-22',
-    expiresAt: null,
-  },
-  {
-    id: 'KEY-004',
-    name: 'Legacy Integration',
-    key: 'audial_live_legacy789xyz012abc345',
-    type: 'private',
-    status: 'revoked',
-    permissions: ['read', 'write'],
-    createdAt: '2024-06-01',
-    lastUsed: '2024-11-30',
-    expiresAt: null,
-  },
-  {
-    id: 'KEY-005',
-    name: 'CI/CD Pipeline',
-    key: 'audial_test_cicd456pipeline789key',
-    type: 'private',
-    status: 'active',
-    permissions: ['read', 'write', 'delete'],
-    createdAt: '2024-09-01',
-    lastUsed: '2024-12-20',
-    expiresAt: '2025-09-01',
-  },
-  {
-    id: 'KEY-006',
-    name: 'Mobile App Widget',
-    key: 'audial_pub_mobile789app456widget',
-    type: 'public',
-    status: 'active',
-    permissions: ['read'],
-    createdAt: '2024-11-15',
-    lastUsed: '2024-12-22',
-    expiresAt: null,
-  },
+type ApiKeyType = 'private' | 'public'
+
+// Transform API keys to combined format
+function transformKeys(
+  privateKeys: PrivateKey[] | undefined,
+  publicKeys: PublicKey[] | undefined
+): CombinedApiKey[] {
+  const combined: CombinedApiKey[] = []
+
+  if (privateKeys) {
+    privateKeys.forEach((key) => {
+      combined.push({
+        id: key.id,
+        name: key.name,
+        description: key.description,
+        type: 'private',
+        active: key.active,
+        lastUsedAt: key.lastUsedAt,
+        createdAt: key.createdAt,
+      })
+    })
+  }
+
+  if (publicKeys) {
+    publicKeys.forEach((key) => {
+      combined.push({
+        id: key.id,
+        name: key.name,
+        description: key.description,
+        type: 'public',
+        active: key.active,
+        lastUsedAt: null,
+        createdAt: key.createdAt,
+        allowedOrigins: key.allowedOrigins,
+        allowedAgentIds: key.allowedAgentIds,
+        allowCustomAgent: key.allowCustomAgent,
+      })
+    })
+  }
+
+  // Sort by creation date, newest first
+  return combined.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+}
+
+// Filter options
+const typeOptions = [
+  { label: 'Private', value: 'private' },
+  { label: 'Public', value: 'public' },
+]
+
+const statusOptions = [
+  { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
 ]
 
 export default function ApiKeysPage() {
-  const [selectedRows, setSelectedRows] = React.useState<ApiKey[]>([])
+  const {
+    data: privateKeys,
+    isLoading: isLoadingPrivate,
+    error: privateError,
+  } = usePrivateKeys()
+  const {
+    data: publicKeys,
+    isLoading: isLoadingPublic,
+    error: publicError,
+  } = usePublicKeys()
+
+  const [selectedRows, setSelectedRows] = React.useState<CombinedApiKey[]>([])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
   const [newKeyName, setNewKeyName] = React.useState('')
   const [selectedKeyType, setSelectedKeyType] = React.useState<ApiKeyType | null>(null)
+
+  const isLoading = isLoadingPrivate || isLoadingPublic
+  const error = privateError || publicError
+
+  const apiKeys = React.useMemo(
+    () => transformKeys(privateKeys, publicKeys),
+    [privateKeys, publicKeys]
+  )
 
   const handleCreateKey = () => {
     if (!selectedKeyType) return
@@ -116,20 +123,59 @@ export default function ApiKeysPage() {
   }
 
   const headerActions = (
-    <Button onClick={() => setShowNewDialog(true)}>
-      <IconPlus className="size-4 mr-1" />
-      Create Key
-    </Button>
+    <div className="flex items-center gap-3">
+      {selectedRows.length > 0 && (
+        <span className="text-sm text-muted-foreground">
+          {selectedRows.length} selected
+        </span>
+      )}
+      <Button onClick={() => setShowNewDialog(true)}>
+        <IconPlus className="size-4 mr-1" />
+        Create Key
+      </Button>
+    </div>
   )
 
   const facetedFilters = React.useMemo(
     () => [
-      { columnId: 'type', title: 'Type', options: keyTypes },
-      { columnId: 'status', title: 'Status', options: statuses },
-      { columnId: 'permissions', title: 'Permissions', options: permissions },
+      { columnId: 'type', title: 'Type', options: typeOptions },
+      { columnId: 'active', title: 'Status', options: statusOptions },
     ],
     []
   )
+
+  if (isLoading) {
+    return (
+      <PageLayout
+        title="API Keys"
+        description="Manage your API keys and access tokens."
+        icon={IconKey}
+        actions={headerActions}
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <PageLayout
+        title="API Keys"
+        description="Manage your API keys and access tokens."
+        icon={IconKey}
+        actions={headerActions}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load API keys</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : 'An error occurred'}
+          </p>
+        </div>
+      </PageLayout>
+    )
+  }
 
   return (
     <>
@@ -143,7 +189,7 @@ export default function ApiKeysPage() {
           <DataTable
             columns={columns}
             data={apiKeys}
-            onSelectionChange={(rows) => setSelectedRows(rows as ApiKey[])}
+            onSelectionChange={(rows) => setSelectedRows(rows as CombinedApiKey[])}
             searchColumnId="name"
             searchPlaceholder="Filter API keys..."
             facetedFilters={facetedFilters}
@@ -175,8 +221,8 @@ export default function ApiKeysPage() {
               <div className="grid grid-cols-2 gap-3">
                 <Card
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
-                    selectedKeyType === 'public' && "border-primary ring-1 ring-primary"
+                    'cursor-pointer transition-all hover:border-primary/50',
+                    selectedKeyType === 'public' && 'border-primary ring-1 ring-primary'
                   )}
                   onClick={() => setSelectedKeyType('public')}
                 >
@@ -196,8 +242,8 @@ export default function ApiKeysPage() {
                 </Card>
                 <Card
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
-                    selectedKeyType === 'private' && "border-primary ring-1 ring-primary"
+                    'cursor-pointer transition-all hover:border-primary/50',
+                    selectedKeyType === 'private' && 'border-primary ring-1 ring-primary'
                   )}
                   onClick={() => setSelectedKeyType('private')}
                 >

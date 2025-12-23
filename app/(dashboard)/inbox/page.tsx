@@ -3,18 +3,17 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { IconPhone, IconEye, IconPhoneIncoming, IconPhoneOutgoing } from '@tabler/icons-react';
+import { Loader2 } from 'lucide-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/data-table/data-table';
-import { getMockCalls, type MockCall } from '@/lib/mock-data/calls';
+import { useCalls, type Call } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { FacetedFilterConfig } from '@/components/data-table/data-table-toolbar';
-
-const calls = getMockCalls();
 
 // Helper function for score color
 function getScoreColor(score?: number): string {
@@ -40,22 +39,28 @@ function getStatusClass(status?: string): string {
 }
 
 // Filter options
-const sourceOptions = [
-  { label: 'Upload', value: 'upload' },
-  { label: 'VAPI', value: 'vapi' },
-  { label: 'Bland AI', value: 'bland' },
-  { label: 'Twilio', value: 'twilio' },
-  { label: 'Manual', value: 'manual' },
+const typeOptions = [
+  { label: 'Websocket Call', value: 'websocketCall' },
+  { label: 'Outbound Phone Call', value: 'outboundPhoneCall' },
+  { label: 'Inbound Phone Call', value: 'inboundPhoneCall' },
 ];
 
-const categoryOptions = [
-  { label: 'Support', value: 'support' },
-  { label: 'Sales', value: 'sales' },
-  { label: 'Billing', value: 'billing' },
-  { label: 'Technical', value: 'technical' },
+const statusOptions = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'In Progress', value: 'in-progress' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Failed', value: 'failed' },
 ];
 
-const columns: ColumnDef<MockCall>[] = [
+// Helper to format duration in seconds to mm:ss
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return '-';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+const columns: ColumnDef<Call>[] = [
   // Select column
   {
     id: 'select',
@@ -88,7 +93,9 @@ const columns: ColumnDef<MockCall>[] = [
     cell: ({ row }) => {
       const call = row.original;
       return (
-        <span className="font-mono text-xs text-muted-foreground">{call.callId}</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {call.id.slice(0, 8)}...
+        </span>
       );
     },
   },
@@ -98,12 +105,11 @@ const columns: ColumnDef<MockCall>[] = [
     header: 'From / To',
     cell: ({ row }) => {
       const call = row.original;
-      const customerName =
-        call.customerName !== 'Unknown' ? call.customerName : null;
-      const customerPhone =
-        call.customer && call.customer !== 'Unknown' ? call.customer : null;
-      const agentName = call.assistantName || call.agentName || 'Unknown';
-      const isInbound = call.direction === 'inbound';
+      const customerName = call.customer?.first_name
+        ? `${call.customer.first_name}${call.customer.last_name ? ` ${call.customer.last_name}` : ''}`
+        : null;
+      const customerPhone = call.customer?.phone_number;
+      const isInbound = call.type === 'inboundPhoneCall';
 
       return (
         <Link
@@ -131,41 +137,27 @@ const columns: ColumnDef<MockCall>[] = [
                 </span>
               )}
             </div>
-            {/* To (Agent) */}
+            {/* Type */}
             <div className="flex items-center gap-1 text-muted-foreground">
               <span className="text-xs">→</span>
-              <span className="truncate text-sm">{agentName}</span>
+              <span className="truncate text-sm capitalize">
+                {call.type.replace(/([A-Z])/g, ' $1').trim()}
+              </span>
             </div>
           </div>
         </Link>
       );
     },
   },
-  // Provider column
+  // Type column
   {
-    accessorKey: 'source',
-    header: 'Provider',
+    accessorKey: 'type',
+    header: 'Type',
     cell: ({ row }) => {
-      const source = row.getValue('source') as string;
+      const type = row.getValue('type') as string;
       return (
         <Badge variant="outline" className="text-xs capitalize">
-          {source || 'manual'}
-        </Badge>
-      );
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
-  },
-  // Category column
-  {
-    accessorKey: 'category',
-    header: 'Category',
-    cell: ({ row }) => {
-      const category = row.getValue('category') as string;
-      return (
-        <Badge variant="outline" className="text-xs capitalize">
-          {category}
+          {type.replace(/([A-Z])/g, ' $1').trim()}
         </Badge>
       );
     },
@@ -189,36 +181,21 @@ const columns: ColumnDef<MockCall>[] = [
       );
     },
   },
-  // Score column
-  {
-    accessorKey: 'overallScore',
-    header: 'Score',
-    cell: ({ row }) => {
-      const call = row.original;
-      const score = call.overallScore;
-      const hasScore = score !== undefined && score !== null;
-
-      return (
-        <span className={hasScore ? getScoreColor(score) : 'text-muted-foreground'}>
-          {hasScore ? `${score}%` : '-'}
-        </span>
-      );
-    },
-  },
   // Duration column
   {
-    accessorKey: 'duration',
+    accessorKey: 'durationSecs',
     header: 'Duration',
     cell: ({ row }) => {
-      return <span className="text-sm">{row.getValue('duration')}</span>;
+      const duration = row.original.durationSecs;
+      return <span className="text-sm">{formatDuration(duration)}</span>;
     },
   },
   // Date column
   {
-    accessorKey: 'date',
+    accessorKey: 'createdAt',
     header: 'Date',
     cell: ({ row }) => {
-      const date = row.getValue('date') as string;
+      const date = row.original.createdAt;
       return (
         <span className="text-sm text-muted-foreground">
           {new Date(date).toLocaleDateString(undefined, {
@@ -252,18 +229,51 @@ const columns: ColumnDef<MockCall>[] = [
 // Faceted filters configuration
 const facetedFilters: FacetedFilterConfig[] = [
   {
-    columnId: 'source',
-    title: 'Provider',
-    options: sourceOptions,
+    columnId: 'type',
+    title: 'Type',
+    options: typeOptions,
   },
   {
-    columnId: 'category',
-    title: 'Category',
-    options: categoryOptions,
+    columnId: 'status',
+    title: 'Status',
+    options: statusOptions,
   },
 ];
 
 export default function InboxPage() {
+  const { data: calls, isLoading, error } = useCalls();
+
+  if (isLoading) {
+    return (
+      <PageLayout
+        title="Inbox"
+        description="View and manage all call interactions"
+        icon={IconPhone}
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageLayout
+        title="Inbox"
+        description="View and manage all call interactions"
+        icon={IconPhone}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load calls</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : 'An error occurred'}
+          </p>
+        </div>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout
       title="Inbox"
@@ -273,7 +283,7 @@ export default function InboxPage() {
       <div className="px-4 lg:px-6">
         <DataTable
           columns={columns}
-          data={calls}
+          data={calls || []}
           searchColumnId="customer"
           searchPlaceholder="Search by customer name or phone..."
           facetedFilters={facetedFilters}
