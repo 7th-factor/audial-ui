@@ -14,7 +14,7 @@
 import { tokenManager } from "@/lib/auth/token-manager";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8989";
+  process.env.NEXT_PUBLIC_API_URL || "https://audial-api-staging.fly.dev";
 
 /**
  * API Error class for handling API-specific errors

@@ -2,15 +2,25 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { IconPhone, IconEye, IconPhoneIncoming, IconPhoneOutgoing } from '@tabler/icons-react';
+import {
+  IconPhone,
+  IconEye,
+  IconPhoneIncoming,
+  IconPhoneOutgoing,
+  IconMessage,
+  IconBrandWhatsapp,
+  IconApi,
+  IconInbox,
+} from '@tabler/icons-react';
 import { Loader2 } from 'lucide-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable } from '@/components/data-table/data-table';
-import { useCalls, type Call } from '@/lib/api';
+import { useCalls, useChats, type Call, type Chat } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { FacetedFilterConfig } from '@/components/data-table/data-table-toolbar';
@@ -226,8 +236,8 @@ const columns: ColumnDef<Call>[] = [
   },
 ];
 
-// Faceted filters configuration
-const facetedFilters: FacetedFilterConfig[] = [
+// Faceted filters configuration for calls
+const callFacetedFilters: FacetedFilterConfig[] = [
   {
     columnId: 'type',
     title: 'Type',
@@ -240,15 +250,211 @@ const facetedFilters: FacetedFilterConfig[] = [
   },
 ];
 
+// Chat filter options
+const chatChannelOptions = [
+  { label: 'WhatsApp', value: 'whatsapp' },
+  { label: 'REST API', value: 'rest-api' },
+];
+
+const chatStatusOptions = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'In Progress', value: 'in-progress' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Failed', value: 'failed' },
+];
+
+// Chat columns
+const chatColumns: ColumnDef<Chat>[] = [
+  // Select column
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+        className="translate-y-[2px]"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        className="translate-y-[2px]"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  // ID column
+  {
+    accessorKey: 'id',
+    header: 'ID',
+    cell: ({ row }) => {
+      const chat = row.original;
+      return (
+        <span className="font-mono text-xs text-muted-foreground">
+          {chat.id.slice(0, 8)}...
+        </span>
+      );
+    },
+  },
+  // Customer column
+  {
+    accessorKey: 'customer',
+    header: 'Customer',
+    cell: ({ row }) => {
+      const chat = row.original;
+      const customer = chat.customer;
+      const customerName = customer
+        ? [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'Unknown'
+        : 'Unknown';
+      const isWhatsApp = chat.channel === 'whatsapp';
+
+      return (
+        <Link
+          href={`/inbox/chat/${chat.id}`}
+          className="flex items-center gap-3 min-w-[220px] hover:bg-muted/50 rounded-md p-1 -m-1 transition-colors"
+        >
+          {/* Channel icon */}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+            {isWhatsApp ? (
+              <IconBrandWhatsapp className="size-4 text-green-600" />
+            ) : (
+              <IconApi className="size-4 text-blue-600" />
+            )}
+          </div>
+          {/* Customer info */}
+          <div className="flex flex-col space-y-0.5">
+            <span className="truncate font-medium text-sm">{customerName}</span>
+            {customer?.email && (
+              <span className="text-xs text-muted-foreground truncate">
+                {customer.email}
+              </span>
+            )}
+          </div>
+        </Link>
+      );
+    },
+  },
+  // Channel column
+  {
+    accessorKey: 'channel',
+    header: 'Channel',
+    cell: ({ row }) => {
+      const chat = row.original;
+      const isWhatsApp = chat.channel === 'whatsapp';
+      return (
+        <Badge variant="outline" className="text-xs capitalize gap-1">
+          {isWhatsApp ? (
+            <IconBrandWhatsapp className="h-3 w-3" />
+          ) : (
+            <IconApi className="h-3 w-3" />
+          )}
+          {chat.channel === 'rest-api' ? 'REST API' : 'WhatsApp'}
+        </Badge>
+      );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  // Messages column
+  {
+    accessorKey: 'messages',
+    header: 'Messages',
+    cell: ({ row }) => {
+      const chat = row.original;
+      return <span className="font-medium">{chat.messages?.length || 0}</span>;
+    },
+  },
+  // Status column
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const status = row.original.status;
+      return (
+        <Badge
+          variant="secondary"
+          className={cn('text-xs capitalize', getStatusClass(status))}
+        >
+          {status || 'Unknown'}
+        </Badge>
+      );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  // Date column
+  {
+    accessorKey: 'createdAt',
+    header: 'Date',
+    cell: ({ row }) => {
+      const date = row.original.createdAt;
+      return (
+        <span className="text-sm text-muted-foreground">
+          {new Date(date).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+      );
+    },
+  },
+  // Actions column
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => {
+      const chat = row.original;
+      return (
+        <Button variant="ghost" size="sm" asChild className="h-8">
+          <Link href={`/inbox/chat/${chat.id}`}>
+            <IconEye className="size-4 mr-2" />
+            View
+          </Link>
+        </Button>
+      );
+    },
+  },
+];
+
+// Faceted filters for chats
+const chatFacetedFilters: FacetedFilterConfig[] = [
+  {
+    columnId: 'channel',
+    title: 'Channel',
+    options: chatChannelOptions,
+  },
+  {
+    columnId: 'status',
+    title: 'Status',
+    options: chatStatusOptions,
+  },
+];
+
 export default function InboxPage() {
-  const { data: calls, isLoading, error } = useCalls();
+  const { data: calls, isLoading: isLoadingCalls, error: callsError } = useCalls();
+  const { data: chats, isLoading: isLoadingChats, error: chatsError } = useChats();
+
+  const isLoading = isLoadingCalls || isLoadingChats;
+  const callCount = calls?.length || 0;
+  const chatCount = chats?.length || 0;
 
   if (isLoading) {
     return (
       <PageLayout
         title="Inbox"
-        description="View and manage all call interactions"
-        icon={IconPhone}
+        description="View and manage all customer interactions"
+        icon={IconInbox}
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -257,46 +463,77 @@ export default function InboxPage() {
     );
   }
 
-  if (error) {
-    return (
-      <PageLayout
-        title="Inbox"
-        description="View and manage all call interactions"
-        icon={IconPhone}
-      >
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-destructive mb-2">Failed to load calls</p>
-          <p className="text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'An error occurred'}
-          </p>
-        </div>
-      </PageLayout>
-    );
-  }
-
   return (
     <PageLayout
       title="Inbox"
-      description="View and manage all call interactions"
-      icon={IconPhone}
+      description="View and manage all customer interactions"
+      icon={IconInbox}
     >
       <div className="px-4 lg:px-6">
-        <DataTable
-          columns={columns}
-          data={calls || []}
-          searchColumnId="customer"
-          searchPlaceholder="Search by customer name or phone..."
-          facetedFilters={facetedFilters}
-          emptyState={{
-            icon: IconPhone,
-            title: "No calls yet",
-            description: "Connect a phone number to start receiving and making calls.",
-            primaryAction: {
-              label: "Connect phone number",
-              onClick: () => console.log("Connect phone"),
-            },
-          }}
-        />
+        <Tabs defaultValue="calls" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="calls" className="gap-2">
+              <IconPhone className="h-4 w-4" />
+              Calls ({callCount})
+            </TabsTrigger>
+            <TabsTrigger value="chats" className="gap-2">
+              <IconMessage className="h-4 w-4" />
+              Chats ({chatCount})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calls">
+            {callsError ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-destructive mb-2">Failed to load calls</p>
+                <p className="text-sm text-muted-foreground">
+                  {callsError instanceof Error ? callsError.message : 'An error occurred'}
+                </p>
+              </div>
+            ) : (
+              <DataTable
+                columns={columns}
+                data={calls || []}
+                searchColumnId="customer"
+                searchPlaceholder="Search by customer name or phone..."
+                facetedFilters={callFacetedFilters}
+                emptyState={{
+                  icon: IconPhone,
+                  title: "No calls yet",
+                  description: "Connect a phone number to start receiving and making calls.",
+                  primaryAction: {
+                    label: "Connect phone number",
+                    onClick: () => console.log("Connect phone"),
+                  },
+                }}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="chats">
+            {chatsError ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-destructive mb-2">Failed to load chats</p>
+                <p className="text-sm text-muted-foreground">
+                  {chatsError instanceof Error ? chatsError.message : 'An error occurred'}
+                </p>
+              </div>
+            ) : (
+              <DataTable
+                columns={chatColumns}
+                data={chats || []}
+                searchColumnId="customer"
+                searchPlaceholder="Search by customer..."
+                facetedFilters={chatFacetedFilters}
+                emptyState={{
+                  icon: IconMessage,
+                  title: "No chats yet",
+                  description: "Start a conversation via WhatsApp or REST API.",
+                }}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </PageLayout>
   );

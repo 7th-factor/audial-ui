@@ -6,7 +6,7 @@
 
 import type { Agent } from "./agent";
 
-export type PhoneNumberProvider = "twilio" | "vonage";
+export type PhoneNumberProvider = "twilio" | "vonage" | "audial";
 
 export interface PhoneNumber {
   id: string;
@@ -53,4 +53,35 @@ export interface UpdatePhoneNumberInput {
   twilioAuthToken?: string;
   vonageApiKey?: string;
   vonageApiSecret?: string;
+}
+
+// Available phone numbers (for purchase)
+export interface PhoneNumberCapabilities {
+  voice: boolean;
+  sms: boolean;
+  mms: boolean;
+}
+
+export interface AvailablePhoneNumber {
+  phoneNumber: string;
+  countryCode: string;
+  capabilities: PhoneNumberCapabilities;
+  monthlyPrice: number | null;
+  setupPrice: number | null;
+}
+
+// Purchase phone number input (for Audial-managed numbers)
+export interface PurchasePhoneNumberInput {
+  phoneNumber: string;
+  assistantId?: string;
+  name: string;
+}
+
+// Purchased phone number (Audial-managed)
+export interface PurchasedPhoneNumber {
+  provider: "audial";
+  number: string;
+  name: string;
+  fallbackDestination: string | null;
+  id: string;
 }

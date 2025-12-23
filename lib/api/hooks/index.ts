@@ -13,6 +13,8 @@ export {
   useCall,
   useCreateCall,
   useCreateCallByAgentId,
+  useWebSocketRoom,
+  useCreateWebSocketRoom,
 } from "./use-calls";
 
 // Customers
@@ -39,6 +41,9 @@ export {
   useCreatePhoneNumber,
   useUpdatePhoneNumber,
   useDeletePhoneNumber,
+  useAvailablePhoneNumbers,
+  usePurchasedPhoneNumbers,
+  usePurchasePhoneNumber,
 } from "./use-phone-numbers";
 
 // Credentials
@@ -56,3 +61,15 @@ export {
   useOpenAIModels,
   useElevenLabsVoices,
 } from "./use-integrations";
+
+// Chats
+export { useChats, useChat, useCreateChat } from "./use-chats";
+
+// WhatsApp Senders
+export {
+  useWhatsAppSenders,
+  useWhatsAppSender,
+  useCreateWhatsAppSender,
+  useUpdateWhatsAppSender,
+  useDeleteWhatsAppSender,
+} from "./use-whatsapp-senders";

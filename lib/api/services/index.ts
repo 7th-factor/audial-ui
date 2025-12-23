@@ -11,3 +11,6 @@ export { apiKeysService } from "./api-keys";
 export { phoneNumbersService } from "./phone-numbers";
 export { credentialsService } from "./credentials";
 export { integrationsService } from "./integrations";
+export { chatsService } from "./chats";
+export { whatsappSendersService } from "./whatsapp-senders";
+export { authService } from "./auth";

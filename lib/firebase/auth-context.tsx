@@ -81,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { current: null };
   })();
 
+  // Get Firebase ID token and use it directly for API authentication
+  // The staging API validates Firebase tokens directly (requires "kid" claim)
   const exchangeToken = useCallback(
     async (firebaseUser: User): Promise<string | null> => {
       try {
@@ -89,15 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (lastExchangeKeyRef.current === key) {
           return tokenManager.getToken() ?? null;
         }
-        console.log("[AuthProvider] Exchanging Firebase token for backend token...");
-        const access = await doExchange(idToken);
-        setCustomToken(access);
-        tokenManager.setToken(access);
+        console.log("[AuthProvider] Using Firebase ID token for API authentication...");
+        // Use Firebase ID token directly - staging API validates Firebase tokens
+        setCustomToken(idToken);
+        tokenManager.setToken(idToken);
         lastExchangeKeyRef.current = key;
-        console.log("[AuthProvider] ✅ Token exchange successful");
-        return access;
+        console.log("[AuthProvider] ✅ Firebase token set successfully");
+        return idToken;
       } catch (error) {
-        console.error("[AuthProvider] ❌ Token exchange failed:", error);
+        console.error("[AuthProvider] ❌ Failed to get Firebase token:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("[AuthProvider] Error details:", {
           message: errorMessage,
@@ -109,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await signOut(auth);
         } catch (signOutError) {
-          console.error("[AuthProvider] Failed to sign out after token exchange error:", signOutError);
+          console.error("[AuthProvider] Failed to sign out after token error:", signOutError);
         }
         return null;
       }

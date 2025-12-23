@@ -125,3 +125,27 @@ export interface CreateCallInput {
     vonageApiSecret?: string;
   };
 }
+
+// WebSocket Room Types
+export interface WebSocketRoom {
+  roomId: string;
+  callId: string;
+  status: CallStatus;
+  websocketUrl: string;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface WebSocketCustomerInput {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+}
+
+export interface CreateWebSocketRoomInput {
+  languageCode?: string;
+  customer?: WebSocketCustomerInput;
+  agentSettings?: CreateCallInput["agentSettings"];
+  agentId?: string;
+}

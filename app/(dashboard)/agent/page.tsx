@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   IconRobot,
   IconSettings,
@@ -19,30 +19,21 @@ import {
   IconChevronUp,
   IconApps,
   IconCopy,
+  IconSelector,
 } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { SaveStatusIndicator } from "@/components/save-status-indicator"
 import { useAutosave } from "@/lib/hooks/use-autosave"
-
-interface AgentConfig {
-  temperature: number
-  maxTokens: number
-  speed: number
-  stability: number
-  selectedSkills: string[]
-  conversationStages: {
-    greeting: string
-    informationGathering: string
-    problemSolving: string
-    closing: string
-  }
-  selectedTemplate: string
-  controlMode: "simple" | "flow"
-  shouldDo: string[]
-  shouldNotDo: string[]
-}
+import {
+  useAgents,
+  useAgent,
+  useUpdateAgent,
+  type Agent,
+  type UpdateAgentInput,
+} from "@/lib/api"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -59,11 +50,38 @@ import { ColorInput } from "@/components/ui/color-input"
 import { toast } from "sonner"
 
 export default function AgentPage() {
-  // Core config state (tracked by autosave)
+  // API hooks
+  const { data: agents, isLoading: isLoadingAgents, error: agentsError } = useAgents()
+  const updateAgentMutation = useUpdateAgent()
+
+  // Selected agent ID
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
+  // Fetch the selected agent
+  const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
+
+  // Auto-select first agent when agents load
+  useEffect(() => {
+    if (agents && agents.length > 0 && !selectedAgentId) {
+      setSelectedAgentId(agents[0].id)
+    }
+  }, [agents, selectedAgentId])
+
+  // Core config state (synced from API)
+  const [agentName, setAgentName] = useState("")
+  const [agentPrompt, setAgentPrompt] = useState("")
   const [temperature, setTemperature] = useState([0.7])
-  const [maxTokens, setMaxTokens] = useState([2048])
   const [speed, setSpeed] = useState([1.0])
   const [stability, setStability] = useState([0.5])
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState(1800)
+  const [silenceTimeout, setSilenceTimeout] = useState(10)
+  const [allowInterruptions, setAllowInterruptions] = useState(true)
+  const [modelProvider, setModelProvider] = useState("openai")
+  const [modelName, setModelName] = useState("gpt-4")
+  const [voiceProvider, setVoiceProvider] = useState("elevenlabs")
+  const [voiceId, setVoiceId] = useState("")
+
+  // UI-only state (not from API)
   const [selectedSkills, setSelectedSkills] = useState<string[]>(["handle-support", "qualify-leads"])
   const [conversationStages, setConversationStages] = useState({
     greeting: "Hi! I'm here to help you today. What can I assist you with?",
@@ -89,47 +107,162 @@ export default function AgentPage() {
   const [newShouldDo, setNewShouldDo] = useState("")
   const [newShouldNotDo, setNewShouldNotDo] = useState("")
 
-  // Consolidate config for autosave
-  const agentConfig = useMemo<AgentConfig>(
-    () => ({
-      temperature: temperature[0],
-      maxTokens: maxTokens[0],
-      speed: speed[0],
-      stability: stability[0],
-      selectedSkills,
-      conversationStages,
-      selectedTemplate,
-      controlMode,
-      shouldDo,
-      shouldNotDo,
-    }),
-    [temperature, maxTokens, speed, stability, selectedSkills, conversationStages, selectedTemplate, controlMode, shouldDo, shouldNotDo]
-  )
+  // Sync form state when agent data loads
+  useEffect(() => {
+    if (agent) {
+      setAgentName(agent.name || "")
+      setAgentPrompt(agent.prompt || "")
+      setTemperature([agent.model?.temperature ?? 0.7])
+      setSpeed([agent.voice?.speed ?? 1.0])
+      setStability([agent.voice?.stability ?? 0.5])
+      setMaxDurationSeconds(agent.maxDurationSeconds ?? 1800)
+      setSilenceTimeout(agent.allowedIdleTime ?? 10)
+      setAllowInterruptions(agent.allowInterruptions ?? true)
+      setModelProvider(agent.model?.provider || "openai")
+      setModelName(agent.model?.model || "gpt-4")
+      setVoiceProvider(agent.voice?.provider || "elevenlabs")
+      setVoiceId(agent.voice?.voiceId || "")
+    }
+  }, [agent])
 
-  // Save function (would connect to API in production)
-  const handleSave = useCallback(async (config: AgentConfig) => {
-    // TODO: Replace with actual API call
-    // await api.updateAgentConfig(config)
-    console.log("Saving agent config:", config)
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }, [])
+  // Build update payload from form state
+  const buildUpdatePayload = useCallback((): UpdateAgentInput => {
+    return {
+      name: agentName,
+      prompt: agentPrompt,
+      model: {
+        provider: modelProvider,
+        model: modelName,
+        temperature: temperature[0],
+      },
+      voice: {
+        provider: voiceProvider,
+        voiceId: voiceId,
+        speed: speed[0],
+        stability: stability[0],
+      },
+      maxDurationSeconds,
+      allowedIdleTime: silenceTimeout,
+      allowInterruptions,
+    }
+  }, [
+    agentName,
+    agentPrompt,
+    modelProvider,
+    modelName,
+    temperature,
+    voiceProvider,
+    voiceId,
+    speed,
+    stability,
+    maxDurationSeconds,
+    silenceTimeout,
+    allowInterruptions,
+  ])
 
-  // Autosave hook
+  // Save function using the API
+  const handleSave = useCallback(async () => {
+    if (!selectedAgentId) return
+
+    const payload = buildUpdatePayload()
+    await updateAgentMutation.mutateAsync({ id: selectedAgentId, data: payload })
+  }, [selectedAgentId, buildUpdatePayload, updateAgentMutation])
+
+  // Autosave hook - using the API payload
+  const agentConfig = useMemo(() => buildUpdatePayload(), [buildUpdatePayload])
+
   const { status, lastSaved } = useAutosave({
     data: agentConfig,
     onSave: handleSave,
-    debounceMs: 1000,
-    enabled: true,
+    debounceMs: 1500,
+    enabled: !!selectedAgentId && !!agent,
   })
+
+  // Loading state
+  if (isLoadingAgents) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // Error state
+  if (agentsError) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load agents</p>
+          <p className="text-sm text-muted-foreground">
+            {agentsError instanceof Error ? agentsError.message : "An error occurred"}
+          </p>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // No agents state
+  if (!agents || agents.length === 0) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <IconRobot className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="font-medium mb-1">No agents yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Create your first AI agent to get started.
+          </p>
+          <Button>
+            <IconPlus className="mr-2 h-4 w-4" />
+            Create Agent
+          </Button>
+        </div>
+      </PageLayout>
+    )
+  }
 
   return (
     <PageLayout
       title="Agent"
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
-      actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
+      actions={
+        <div className="flex items-center gap-4">
+          {/* Agent Selector */}
+          <Select value={selectedAgentId || ""} onValueChange={setSelectedAgentId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <SaveStatusIndicator status={status} lastSaved={lastSaved} />
+        </div>
+      }
     >
+      {isLoadingAgent ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <div className="px-4 lg:px-6">
         <Tabs defaultValue="general" className="w-full p-2 bg-muted">
           <TabsList>
@@ -191,7 +324,12 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="agent-name">Agent Name</Label>
-                  <Input id="agent-name" placeholder="My AI Assistant" defaultValue="Customer Support Agent" />
+                  <Input
+                    id="agent-name"
+                    placeholder="My AI Assistant"
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -261,15 +399,16 @@ export default function AgentPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
-                  <Select defaultValue="gpt-4">
+                  <Select value={modelName} onValueChange={setModelName}>
                     <SelectTrigger id="model" className="w-full">
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gpt-4">GPT-4</SelectItem>
                       <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                      <SelectItem value="gpt-3.5">GPT-3.5 Turbo</SelectItem>
-                      <SelectItem value="claude-3">Claude 3</SelectItem>
+                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                      <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                      <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -290,21 +429,6 @@ export default function AgentPage() {
                   <p className="text-xs text-muted-foreground">Controls randomness in responses</p>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="max-tokens">Max Tokens</Label>
-                    <span className="text-sm text-muted-foreground">{maxTokens[0]}</span>
-                  </div>
-                  <Slider
-                    id="max-tokens"
-                    value={maxTokens}
-                    onValueChange={setMaxTokens}
-                    min={100}
-                    max={4000}
-                    step={100}
-                  />
-                  <p className="text-xs text-muted-foreground">Maximum length of responses</p>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -318,32 +442,30 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="voice-provider">Voice Provider</Label>
-                  <Select defaultValue="elevenlabs">
+                  <Select value={voiceProvider} onValueChange={setVoiceProvider}>
                     <SelectTrigger id="voice-provider" className="w-full">
                       <SelectValue placeholder="Select provider" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
                       <SelectItem value="openai">OpenAI TTS</SelectItem>
-                      <SelectItem value="google">Google Cloud TTS</SelectItem>
+                      <SelectItem value="deepgram">Deepgram</SelectItem>
                       <SelectItem value="azure">Azure Speech</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="voice">Voice</Label>
-                  <Select defaultValue="rachel">
-                    <SelectTrigger id="voice" className="w-full">
-                      <SelectValue placeholder="Select voice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rachel">Rachel (Female, US)</SelectItem>
-                      <SelectItem value="adam">Adam (Male, US)</SelectItem>
-                      <SelectItem value="bella">Bella (Female, UK)</SelectItem>
-                      <SelectItem value="josh">Josh (Male, US)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="voice">Voice ID</Label>
+                  <Input
+                    id="voice"
+                    placeholder="Enter voice ID"
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The voice ID from your provider (e.g., ElevenLabs voice ID)
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -873,24 +995,14 @@ export default function AgentPage() {
                     <Label htmlFor="system-prompt">System Prompt</Label>
                     <Textarea
                       id="system-prompt"
-                      placeholder="Raw system prompt..."
+                      placeholder="Enter your agent's system prompt..."
                       rows={12}
                       className="font-mono text-xs"
-                      defaultValue={`You are a professional customer support agent for [Company Name].
-
-PRIMARY GOAL: ${shouldDo[0] || "Resolve customer issues and provide support"}
-
-BEHAVIORAL RULES:
-Should Do:
-${shouldDo.map((item) => `- ${item}`).join("\n")}
-
-Should Not Do:
-${shouldNotDo.map((item) => `- ${item}`).join("\n")}
-
-Always be friendly, helpful, and professional. Ask clarifying questions when needed.`}
+                      value={agentPrompt}
+                      onChange={(e) => setAgentPrompt(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Changes here will override the structured rules above
+                      This is the main instruction that guides your agent's behavior
                     </p>
                   </div>
                 </CardContent>
@@ -908,7 +1020,10 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
                     <Label>Allow Interruptions</Label>
                     <p className="text-xs text-muted-foreground">User can interrupt agent while speaking</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={allowInterruptions}
+                    onCheckedChange={setAllowInterruptions}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -923,13 +1038,26 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="max-duration">Max Call Duration (min)</Label>
-                    <Input id="max-duration" type="number" defaultValue="30" />
+                    <Label htmlFor="max-duration">Max Call Duration (sec)</Label>
+                    <Input
+                      id="max-duration"
+                      type="number"
+                      value={maxDurationSeconds}
+                      onChange={(e) => setMaxDurationSeconds(Number(e.target.value))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {Math.floor(maxDurationSeconds / 60)} minutes
+                    </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="silence-timeout">Silence Timeout (sec)</Label>
-                    <Input id="silence-timeout" type="number" defaultValue="10" />
+                    <Input
+                      id="silence-timeout"
+                      type="number"
+                      value={silenceTimeout}
+                      onChange={(e) => setSilenceTimeout(Number(e.target.value))}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -1348,6 +1476,7 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
           </TabsContent>
         </Tabs>
       </div>
+      )}
     </PageLayout>
   )
 }

@@ -5,7 +5,13 @@
  */
 
 import { apiClient } from "../client";
-import type { Call, CallDetail, CreateCallInput } from "../types";
+import type {
+  Call,
+  CallDetail,
+  CreateCallInput,
+  WebSocketRoom,
+  CreateWebSocketRoomInput,
+} from "../types";
 
 export const callsService = {
   /**
@@ -32,4 +38,23 @@ export const callsService = {
     agentId: string;
     phoneNumber: CreateCallInput["phoneNumber"];
   }) => apiClient.post<CallDetail>("/api/v1/call/create", data),
+
+  /**
+   * Get WebSocket room by ID
+   * Requires a public API key
+   */
+  getWebSocketRoom: (roomId: string, publicKey: string) =>
+    apiClient.get<WebSocketRoom>(
+      `/api/v1/call/websocket/room/${roomId}?public_key=${publicKey}`
+    ),
+
+  /**
+   * Create a WebSocket room
+   * Requires a public API key
+   */
+  createWebSocketRoom: (data: CreateWebSocketRoomInput, publicKey: string) =>
+    apiClient.post<WebSocketRoom>(
+      `/api/v1/call/websocket/create?public_key=${publicKey}`,
+      data
+    ),
 };

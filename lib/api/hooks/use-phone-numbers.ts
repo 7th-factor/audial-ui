@@ -8,7 +8,11 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { phoneNumbersService } from "../services/phone-numbers";
-import type { CreatePhoneNumberInput, UpdatePhoneNumberInput } from "../types";
+import type {
+  CreatePhoneNumberInput,
+  UpdatePhoneNumberInput,
+  PurchasePhoneNumberInput,
+} from "../types";
 
 const PHONE_NUMBERS_KEY = ["phone-numbers"] as const;
 
@@ -74,6 +78,47 @@ export function useDeletePhoneNumber() {
     mutationFn: (id: string) => phoneNumbersService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PHONE_NUMBERS_KEY });
+    },
+  });
+}
+
+/**
+ * Fetch available phone numbers for purchase
+ */
+export function useAvailablePhoneNumbers() {
+  return useQuery({
+    queryKey: [...PHONE_NUMBERS_KEY, "available"],
+    queryFn: phoneNumbersService.listAvailable,
+  });
+}
+
+/**
+ * Fetch purchased (Audial-managed) phone numbers
+ */
+export function usePurchasedPhoneNumbers() {
+  return useQuery({
+    queryKey: [...PHONE_NUMBERS_KEY, "purchased"],
+    queryFn: phoneNumbersService.listPurchased,
+  });
+}
+
+/**
+ * Purchase a phone number
+ */
+export function usePurchasePhoneNumber() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: PurchasePhoneNumberInput) =>
+      phoneNumbersService.purchase(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PHONE_NUMBERS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [...PHONE_NUMBERS_KEY, "available"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...PHONE_NUMBERS_KEY, "purchased"],
+      });
     },
   });
 }

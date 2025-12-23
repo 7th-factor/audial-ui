@@ -4,9 +4,9 @@ export async function exchangeToken(idToken: string, signal?: AbortSignal): Prom
   const useLocalApi = process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR === 'true' || 
                       process.env.NEXT_PUBLIC_USE_LOCAL_TOKEN_EXCHANGE === 'true';
   
-  const baseURL = useLocalApi 
+  const baseURL = useLocalApi
     ? typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8989';
+    : process.env.NEXT_PUBLIC_API_URL || 'https://audial-api-staging.fly.dev';
   
   const endpoint = useLocalApi 
     ? '/api/auth/exchange-token'

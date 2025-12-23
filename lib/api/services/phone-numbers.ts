@@ -9,6 +9,9 @@ import type {
   PhoneNumber,
   CreatePhoneNumberInput,
   UpdatePhoneNumberInput,
+  AvailablePhoneNumber,
+  PurchasePhoneNumberInput,
+  PurchasedPhoneNumber,
 } from "../types";
 
 export const phoneNumbersService = {
@@ -38,4 +41,27 @@ export const phoneNumbersService = {
    * Delete a phone number
    */
   delete: (id: string) => apiClient.delete(`/api/v1/phone-numbers/${id}`),
+
+  /**
+   * Fetch available phone numbers for purchase
+   */
+  listAvailable: () =>
+    apiClient.get<AvailablePhoneNumber[]>("/api/v1/phone-numbers/available"),
+
+  /**
+   * Fetch purchased (Audial-managed) phone numbers
+   */
+  listPurchased: () =>
+    apiClient.get<PurchasedPhoneNumber[]>(
+      "/api/v1/phone-numbers?provider=audial"
+    ),
+
+  /**
+   * Purchase a phone number (Audial-managed)
+   */
+  purchase: (data: PurchasePhoneNumberInput) =>
+    apiClient.post<PurchasedPhoneNumber>(
+      "/api/v1/phone-numbers/purchase",
+      data
+    ),
 };

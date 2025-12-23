@@ -10,3 +10,5 @@ export * from "./customer";
 export * from "./api-key";
 export * from "./phone-number";
 export * from "./credential";
+export * from "./chat";
+export * from "./whatsapp-sender";
