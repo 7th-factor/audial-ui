@@ -12,3 +12,4 @@ export * from "./phone-number";
 export * from "./credential";
 export * from "./chat";
 export * from "./whatsapp-sender";
+export * from "./workspace";

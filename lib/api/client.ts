@@ -12,6 +12,7 @@
  */
 
 import { tokenManager } from "@/lib/auth/token-manager";
+import { workspaceStore } from "@/lib/auth/workspace-store";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://audial-api-staging.fly.dev";
@@ -52,6 +53,7 @@ async function request<T>(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...tokenManager.getAuthHeader(),
+    ...workspaceStore.getWorkspaceHeader(),
     ...options.headers,
   };
 

@@ -73,3 +73,6 @@ export {
   useUpdateWhatsAppSender,
   useDeleteWhatsAppSender,
 } from "./use-whatsapp-senders";
+
+// Workspaces
+export { useWorkspaces, useCreateWorkspace } from "./use-workspaces";

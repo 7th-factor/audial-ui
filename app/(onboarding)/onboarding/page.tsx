@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
+import { workspaceManager } from "@/lib/auth/workspace-manager"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   OnboardingStepper,
@@ -115,11 +116,22 @@ export default function OnboardingPage() {
     setCurrentStep(4) // Go back to plan selection
   }
 
-  const handleOnboardingComplete = (finalData: OnboardingData) => {
-    // TODO: Send data to API
-    console.log("Onboarding complete:", finalData)
-    toast.success("Onboarding complete! Welcome to Audial.")
-    router.push("/")
+  const handleOnboardingComplete = async (finalData: OnboardingData) => {
+    try {
+      // Create workspace with business name
+      console.log("Creating workspace:", finalData.businessInfo.businessName)
+      await workspaceManager.createWorkspace({
+        name: finalData.businessInfo.businessName,
+        description: finalData.businessInfo.description,
+      })
+
+      console.log("Onboarding complete:", finalData)
+      toast.success("Onboarding complete! Welcome to Audial.")
+      router.push("/")
+    } catch (error) {
+      console.error("Failed to create workspace:", error)
+      toast.error("Failed to create workspace. Please try again.")
+    }
   }
 
   // Get selected phone info for payment step
