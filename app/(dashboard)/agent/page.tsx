@@ -30,8 +30,10 @@ import { useAutosave } from "@/lib/hooks/use-autosave"
 import {
   useAgents,
   useAgent,
+  useCreateAgent,
   useUpdateAgent,
   type Agent,
+  type CreateAgentInput,
   type UpdateAgentInput,
 } from "@/lib/api"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -47,15 +49,70 @@ import { NamedAvatar } from "@/components/named-avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ColorInput } from "@/components/ui/color-input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { agentOptions } from "@/lib/validations/onboarding"
+
+// Agent template configurations for creation
+const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
+  sarah: {
+    languageCode: "en",
+    prompt: "You are Sarah, a friendly and professional AI receptionist. Your role is to greet callers warmly, understand their needs, and help schedule appointments. Be helpful, patient, and always maintain a positive tone.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  charlie: {
+    languageCode: "en",
+    prompt: "You are Charlie, an expert at qualifying leads and conducting surveys. Your role is to ask thoughtful questions, gather important information, and help identify qualified prospects. Be conversational but focused on gathering key data points.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "29vD33N1CtxCmqQRPOHJ" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  kate: {
+    languageCode: "en",
+    prompt: "You are Kate, a skilled sales representative and customer support specialist. Your role is to help customers find the right products, answer their questions, and provide excellent service. Be enthusiastic, knowledgeable, and solution-oriented.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  other: {
+    languageCode: "en",
+    prompt: "You are a helpful AI assistant. Customize this prompt to define your agent's personality, role, and behavior.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+}
 
 export default function AgentPage() {
   // API hooks
   const { data: agents, isLoading: isLoadingAgents, error: agentsError } = useAgents()
+  const createAgentMutation = useCreateAgent()
   const updateAgentMutation = useUpdateAgent()
 
   // Selected agent ID
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
+  // Create Agent Dialog State
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [newAgentName, setNewAgentName] = useState("")
 
   // Fetch the selected agent
   const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
@@ -178,6 +235,39 @@ export default function AgentPage() {
     enabled: !!selectedAgentId && !!agent,
   })
 
+  // Create Agent Handler
+  const handleCreateAgent = async () => {
+    if (!selectedTemplateId || !newAgentName.trim()) return
+
+    const template = agentTemplates[selectedTemplateId]
+    if (!template) return
+
+    try {
+      const newAgent = await createAgentMutation.mutateAsync({
+        name: newAgentName.trim(),
+        ...template,
+      })
+
+      // Close dialog and select the new agent
+      setShowCreateDialog(false)
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+      setSelectedAgentId(newAgent.id)
+
+      toast.success(`Agent "${newAgentName.trim()}" created successfully`)
+    } catch {
+      // Error is handled by mutation
+    }
+  }
+
+  const handleCreateDialogClose = (open: boolean) => {
+    setShowCreateDialog(open)
+    if (!open) {
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+    }
+  }
+
   // Loading state
   if (isLoadingAgents) {
     return (
@@ -211,30 +301,127 @@ export default function AgentPage() {
     )
   }
 
+  // Create Agent Dialog Component (reusable)
+  const createAgentDialog = (
+    <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Create New Agent</DialogTitle>
+          <DialogDescription>
+            Choose a template to start with. You can customize your agent after creation.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          {/* Template Selection */}
+          <div className="space-y-3">
+            <Label>Choose a Template</Label>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {agentOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTemplateId(option.id)
+                    // Auto-fill name for templates (except "other")
+                    if (option.id !== "other" && !newAgentName) {
+                      setNewAgentName(option.name)
+                    }
+                  }}
+                  className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all hover:shadow-md ${
+                    selectedTemplateId === option.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <div className="relative aspect-square overflow-hidden bg-muted">
+                    {option.image ? (
+                      <img
+                        src={option.image}
+                        alt={option.name}
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <IconRobot className="size-10 text-muted-foreground/40" strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 p-2">
+                    <span className="font-medium text-sm">{option.name}</span>
+                    <span className="text-xs text-muted-foreground line-clamp-2">
+                      {option.role}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent Name Input */}
+          <div className="space-y-2">
+            <Label htmlFor="agent-name">Agent Name</Label>
+            <Input
+              id="agent-name"
+              placeholder="Enter agent name"
+              value={newAgentName}
+              onChange={(e) => setNewAgentName(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => handleCreateDialogClose(false)}
+            disabled={createAgentMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateAgent}
+            disabled={!selectedTemplateId || !newAgentName.trim() || createAgentMutation.isPending}
+          >
+            {createAgentMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Agent"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   // No agents state
   if (!agents || agents.length === 0) {
     return (
-      <PageLayout
-        title="Agent"
-        description="Configure and manage your AI agent settings."
-        icon={IconRobot}
-      >
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <IconRobot className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="font-medium mb-1">No agents yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Create your first AI agent to get started.
-          </p>
-          <Button>
-            <IconPlus className="mr-2 h-4 w-4" />
-            Create Agent
-          </Button>
-        </div>
-      </PageLayout>
+      <>
+        <PageLayout
+          title="Agent"
+          description="Configure and manage your AI agent settings."
+          icon={IconRobot}
+        >
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <IconRobot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="font-medium mb-1">No agents yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first AI agent to get started.
+            </p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <IconPlus className="mr-2 h-4 w-4" />
+              Create Agent
+            </Button>
+          </div>
+        </PageLayout>
+        {createAgentDialog}
+      </>
     )
   }
 
   return (
+    <>
     <PageLayout
       title="Agent"
       description="Configure and manage your AI agent settings."
@@ -254,6 +441,10 @@ export default function AgentPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={() => setShowCreateDialog(true)}>
+            <IconPlus className="mr-1 h-4 w-4" />
+            New Agent
+          </Button>
           <SaveStatusIndicator status={status} lastSaved={lastSaved} />
         </div>
       }
@@ -1478,5 +1669,7 @@ export default function AgentPage() {
       </div>
       )}
     </PageLayout>
+    {createAgentDialog}
+    </>
   )
 }

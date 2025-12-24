@@ -74,7 +74,7 @@ export interface Agent {
 
 export interface CreateAgentInput {
   name: string;
-  languageCode?: string;
+  languageCode: string;
   prompt: string;
   model: AgentModel;
   voice: AgentVoice;

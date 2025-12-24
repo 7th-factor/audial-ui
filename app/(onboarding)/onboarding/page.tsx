@@ -162,6 +162,7 @@ export default function OnboardingPage() {
       try {
         const agentInput: CreateAgentInput = {
           name: template.name || "AI Assistant",
+          languageCode: "en",
           prompt: template.prompt || "You are a helpful AI assistant.",
           model: template.model || { provider: "openai", model: "gpt-4o-mini" },
           voice: template.voice || { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
