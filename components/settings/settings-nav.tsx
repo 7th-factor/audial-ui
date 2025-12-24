@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   IconUser,
   IconPhone,
-  IconBrandWhatsapp,
   IconPlugConnected,
   IconCreditCard,
   IconUsers,
@@ -22,11 +21,6 @@ const settingsNavItems = [
     title: 'Phone numbers',
     url: '/settings/phone-numbers',
     icon: IconPhone,
-  },
-  {
-    title: 'WhatsApp Senders',
-    url: '/settings/whatsapp-senders',
-    icon: IconBrandWhatsapp,
   },
   {
     title: 'Integrations',
