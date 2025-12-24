@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { IconArrowLeft, IconArrowRight, IconVolume, IconUserCircle } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -11,12 +12,14 @@ interface AgentSelectionStepProps {
   defaultValues?: Partial<AgentSelectionFormValues>
   onNext: (data: AgentSelectionFormValues) => void
   onBack: () => void
+  isLoading?: boolean
 }
 
 export function AgentSelectionStep({
   defaultValues,
   onNext,
   onBack,
+  isLoading = false,
 }: AgentSelectionStepProps) {
   const [selectedAgent, setSelectedAgent] = useState<string>(
     defaultValues?.agentId ?? ""
@@ -96,13 +99,22 @@ export function AgentSelectionStep({
       </p>
 
       <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" onClick={onBack}>
+        <Button type="button" variant="outline" onClick={onBack} disabled={isLoading}>
           <IconArrowLeft className="mr-2 size-4" />
           Back
         </Button>
-        <Button type="button" onClick={handleNext}>
-          Next
-          <IconArrowRight className="ml-2 size-4" />
+        <Button type="button" onClick={handleNext} disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Setting up...
+            </>
+          ) : (
+            <>
+              Next
+              <IconArrowRight className="ml-2 size-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

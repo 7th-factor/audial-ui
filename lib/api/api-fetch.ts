@@ -1,4 +1,5 @@
 import { tokenManager } from '@/lib/auth/token-manager'
+import { workspaceStore } from '@/lib/auth/workspace-store'
 import { ApiError, ApiErrorPayload } from '@/lib/api/errors'
 
 /**
@@ -36,6 +37,7 @@ export async function apiFetch<T = Json>(
       'Content-Type': 'application/json',
       ...(init.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...workspaceStore.getWorkspaceHeader(),
     },
   })
 

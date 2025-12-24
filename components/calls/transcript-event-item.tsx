@@ -196,3 +196,4 @@ export function EventItem({ event, startTime, isExpanded = false, onToggle }: Ev
   );
 }
 
+

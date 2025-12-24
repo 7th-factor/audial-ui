@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   IconRobot,
   IconSettings,
@@ -19,30 +19,23 @@ import {
   IconChevronUp,
   IconApps,
   IconCopy,
+  IconSelector,
 } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { SaveStatusIndicator } from "@/components/save-status-indicator"
 import { useAutosave } from "@/lib/hooks/use-autosave"
-
-interface AgentConfig {
-  temperature: number
-  maxTokens: number
-  speed: number
-  stability: number
-  selectedSkills: string[]
-  conversationStages: {
-    greeting: string
-    informationGathering: string
-    problemSolving: string
-    closing: string
-  }
-  selectedTemplate: string
-  controlMode: "simple" | "flow"
-  shouldDo: string[]
-  shouldNotDo: string[]
-}
+import {
+  useAgents,
+  useAgent,
+  useCreateAgent,
+  useUpdateAgent,
+  type Agent,
+  type CreateAgentInput,
+  type UpdateAgentInput,
+} from "@/lib/api"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -56,14 +49,205 @@ import { NamedAvatar } from "@/components/named-avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ColorInput } from "@/components/ui/color-input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { agentOptions } from "@/lib/validations/onboarding"
+import { useGetWidgetConfigByAgent } from "@/lib/features/widget"
+import { useDefaultPublicApiKey } from "@/lib/features/api-keys"
+import { WebWidgetForm } from "@/components/widget-config/web-widget-form"
+
+// Widget preview container ID
+const WIDGET_CONTAINER_ID = "audial-widget-preview-container"
+
+// Agent template configurations for creation
+const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
+  sarah: {
+    languageCode: "en",
+    prompt: "You are Sarah, a friendly and professional AI receptionist. Your role is to greet callers warmly, understand their needs, and help schedule appointments. Be helpful, patient, and always maintain a positive tone.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  charlie: {
+    languageCode: "en",
+    prompt: "You are Charlie, an expert at qualifying leads and conducting surveys. Your role is to ask thoughtful questions, gather important information, and help identify qualified prospects. Be conversational but focused on gathering key data points.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "29vD33N1CtxCmqQRPOHJ" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  kate: {
+    languageCode: "en",
+    prompt: "You are Kate, a skilled sales representative and customer support specialist. Your role is to help customers find the right products, answer their questions, and provide excellent service. Be enthusiastic, knowledgeable, and solution-oriented.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  other: {
+    languageCode: "en",
+    prompt: "You are a helpful AI assistant. Customize this prompt to define your agent's personality, role, and behavior.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+}
 
 export default function AgentPage() {
-  // Core config state (tracked by autosave)
+  // API hooks
+  const { data: agents, isLoading: isLoadingAgents, error: agentsError } = useAgents()
+  const createAgentMutation = useCreateAgent()
+  const updateAgentMutation = useUpdateAgent()
+
+  // Selected agent ID
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
+  // Create Agent Dialog State
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [newAgentName, setNewAgentName] = useState("")
+
+  // Fetch the selected agent
+  const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
+
+  // Fetch widget config for the selected agent
+  const { data: widgetConfig, isLoading: isLoadingWidget } = useGetWidgetConfigByAgent(selectedAgentId ?? "")
+
+  // Widget preview state - always enabled when on widget tab
+  const { data: defaultApiKey } = useDefaultPublicApiKey()
+  const [activeTab, setActiveTab] = useState("general")
+  const widgetScriptRef = React.useRef<HTMLScriptElement | null>(null)
+
+  // Load/unload widget preview when on widget tab
+  const widgetPreviewEnabled = activeTab === "widget"
+
+  // Helper to clean up widget DOM elements
+  const cleanupWidget = useCallback(() => {
+    // Call destroy if available
+    if (window.audial?.destroy) {
+      window.audial.destroy()
+    }
+    // Remove the main widget container
+    const widgetRoot = document.getElementById("audial-widget")
+    if (widgetRoot) {
+      widgetRoot.remove()
+    }
+    // Remove any widget DOM elements that might persist
+    const widgetElements = document.querySelectorAll('[id^="audial"], [class*="audial"]')
+    widgetElements.forEach((el) => el.remove())
+    // Also check for common widget container patterns
+    const shadowHosts = document.querySelectorAll('[data-audial-widget]')
+    shadowHosts.forEach((el) => el.remove())
+    // Remove script
+    if (widgetScriptRef.current) {
+      widgetScriptRef.current.remove()
+      widgetScriptRef.current = null
+    }
+    // Reset window.audial to force re-initialization
+    if (window.audial) {
+      delete (window as Window & { audial?: unknown }).audial
+    }
+  }, [])
+
+  // Dispatch config updates to the widget preview in real-time
+  const handleDispatchAction = useCallback((payload: Record<string, unknown>) => {
+    if (typeof window.audial === "undefined") return;
+    window.audial.dispatchAction("update-config", payload);
+  }, []);
+
+  useEffect(() => {
+    if (!widgetPreviewEnabled || !selectedAgentId || !defaultApiKey?.id) {
+      cleanupWidget()
+      return
+    }
+
+    // Load the widget script
+    const script = document.createElement("script")
+    script.type = "module"
+    script.src = "/widget/bundle.mjs" // Local development bundle
+    script.onload = () => {
+      if (window.audial) {
+        window.audial.loadWidget({
+          agentId: selectedAgentId,
+          apiKey: defaultApiKey.id,
+          baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+          options: {
+            containerId: WIDGET_CONTAINER_ID,
+            previewMode: true,
+            defaultOpen: true,
+            debug: false,
+          },
+        })
+      }
+    }
+    script.onerror = () => {
+      // Try production URL if local fails
+      const prodScript = document.createElement("script")
+      prodScript.type = "module"
+      prodScript.src = "https://app.audial.co/widget/bundle.mjs"
+      prodScript.onload = () => {
+        if (window.audial) {
+          window.audial.loadWidget({
+            agentId: selectedAgentId,
+            apiKey: defaultApiKey.id,
+            baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+            options: {
+              containerId: WIDGET_CONTAINER_ID,
+              previewMode: true,
+              defaultOpen: true,
+              debug: false,
+            },
+          })
+        }
+      }
+      prodScript.onerror = () => {
+        toast.error("Failed to load widget preview")
+      }
+      widgetScriptRef.current = prodScript
+      document.body.appendChild(prodScript)
+    }
+
+    widgetScriptRef.current = script
+    document.body.appendChild(script)
+
+    return () => cleanupWidget()
+  }, [widgetPreviewEnabled, selectedAgentId, defaultApiKey?.id, cleanupWidget])
+
+  // Auto-select first agent when agents load
+  useEffect(() => {
+    if (agents && agents.length > 0 && !selectedAgentId) {
+      setSelectedAgentId(agents[0].id)
+    }
+  }, [agents, selectedAgentId])
+
+  // Core config state (synced from API)
+  const [agentName, setAgentName] = useState("")
+  const [agentPrompt, setAgentPrompt] = useState("")
   const [temperature, setTemperature] = useState([0.7])
-  const [maxTokens, setMaxTokens] = useState([2048])
   const [speed, setSpeed] = useState([1.0])
   const [stability, setStability] = useState([0.5])
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState(1800)
+  const [silenceTimeout, setSilenceTimeout] = useState(10)
+  const [allowInterruptions, setAllowInterruptions] = useState(true)
+  const [modelProvider, setModelProvider] = useState("openai")
+  const [modelName, setModelName] = useState("gpt-4")
+  const [voiceProvider, setVoiceProvider] = useState("elevenlabs")
+  const [voiceId, setVoiceId] = useState("")
+
+  // UI-only state (not from API)
   const [selectedSkills, setSelectedSkills] = useState<string[]>(["handle-support", "qualify-leads"])
   const [conversationStages, setConversationStages] = useState({
     greeting: "Hi! I'm here to help you today. What can I assist you with?",
@@ -89,49 +273,298 @@ export default function AgentPage() {
   const [newShouldDo, setNewShouldDo] = useState("")
   const [newShouldNotDo, setNewShouldNotDo] = useState("")
 
-  // Consolidate config for autosave
-  const agentConfig = useMemo<AgentConfig>(
-    () => ({
-      temperature: temperature[0],
-      maxTokens: maxTokens[0],
-      speed: speed[0],
-      stability: stability[0],
-      selectedSkills,
-      conversationStages,
-      selectedTemplate,
-      controlMode,
-      shouldDo,
-      shouldNotDo,
-    }),
-    [temperature, maxTokens, speed, stability, selectedSkills, conversationStages, selectedTemplate, controlMode, shouldDo, shouldNotDo]
-  )
+  // Sync form state when agent data loads
+  useEffect(() => {
+    if (agent) {
+      setAgentName(agent.name || "")
+      setAgentPrompt(agent.prompt || "")
+      setTemperature([agent.model?.temperature ?? 0.7])
+      setSpeed([agent.voice?.speed ?? 1.0])
+      setStability([agent.voice?.stability ?? 0.5])
+      setMaxDurationSeconds(agent.maxDurationSeconds ?? 1800)
+      setSilenceTimeout(agent.allowedIdleTime ?? 10)
+      setAllowInterruptions(agent.allowInterruptions ?? true)
+      setModelProvider(agent.model?.provider || "openai")
+      setModelName(agent.model?.model || "gpt-4")
+      setVoiceProvider(agent.voice?.provider || "elevenlabs")
+      setVoiceId(agent.voice?.voiceId || "")
+    }
+  }, [agent])
 
-  // Save function (would connect to API in production)
-  const handleSave = useCallback(async (config: AgentConfig) => {
-    // TODO: Replace with actual API call
-    // await api.updateAgentConfig(config)
-    console.log("Saving agent config:", config)
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }, [])
+  // Build update payload from form state
+  const buildUpdatePayload = useCallback((): UpdateAgentInput => {
+    return {
+      name: agentName,
+      prompt: agentPrompt,
+      model: {
+        provider: modelProvider,
+        model: modelName,
+        temperature: temperature[0],
+      },
+      voice: {
+        provider: voiceProvider,
+        voiceId: voiceId,
+        speed: speed[0],
+        stability: stability[0],
+      },
+      maxDurationSeconds,
+      allowedIdleTime: silenceTimeout,
+      allowInterruptions,
+    }
+  }, [
+    agentName,
+    agentPrompt,
+    modelProvider,
+    modelName,
+    temperature,
+    voiceProvider,
+    voiceId,
+    speed,
+    stability,
+    maxDurationSeconds,
+    silenceTimeout,
+    allowInterruptions,
+  ])
 
-  // Autosave hook
+  // Save function using the API
+  const handleSave = useCallback(async () => {
+    if (!selectedAgentId) return
+
+    const payload = buildUpdatePayload()
+    await updateAgentMutation.mutateAsync({ id: selectedAgentId, data: payload })
+  }, [selectedAgentId, buildUpdatePayload, updateAgentMutation])
+
+  // Autosave hook - using the API payload
+  const agentConfig = useMemo(() => buildUpdatePayload(), [buildUpdatePayload])
+
   const { status, lastSaved } = useAutosave({
     data: agentConfig,
     onSave: handleSave,
-    debounceMs: 1000,
-    enabled: true,
+    debounceMs: 1500,
+    enabled: !!selectedAgentId && !!agent,
   })
 
+  // Create Agent Handler
+  const handleCreateAgent = async () => {
+    if (!selectedTemplateId || !newAgentName.trim()) return
+
+    const template = agentTemplates[selectedTemplateId]
+    if (!template) return
+
+    try {
+      const newAgent = await createAgentMutation.mutateAsync({
+        name: newAgentName.trim(),
+        ...template,
+      })
+
+      // Close dialog and select the new agent
+      setShowCreateDialog(false)
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+      setSelectedAgentId(newAgent.id)
+
+      toast.success(`Agent "${newAgentName.trim()}" created successfully`)
+    } catch {
+      // Error is handled by mutation
+    }
+  }
+
+  const handleCreateDialogClose = (open: boolean) => {
+    setShowCreateDialog(open)
+    if (!open) {
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+    }
+  }
+
+  // Loading state
+  if (isLoadingAgents) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // Error state
+  if (agentsError) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load agents</p>
+          <p className="text-sm text-muted-foreground">
+            {agentsError instanceof Error ? agentsError.message : "An error occurred"}
+          </p>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // Create Agent Dialog Component (reusable)
+  const createAgentDialog = (
+    <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Create New Agent</DialogTitle>
+          <DialogDescription>
+            Choose a template to start with. You can customize your agent after creation.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          {/* Template Selection */}
+          <div className="space-y-3">
+            <Label>Choose a Template</Label>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {agentOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTemplateId(option.id)
+                    // Auto-fill name for templates (except "other")
+                    if (option.id !== "other" && !newAgentName) {
+                      setNewAgentName(option.name)
+                    }
+                  }}
+                  className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all hover:shadow-md ${
+                    selectedTemplateId === option.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <div className="relative aspect-square overflow-hidden bg-muted">
+                    {option.image ? (
+                      <img
+                        src={option.image}
+                        alt={option.name}
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <IconRobot className="size-10 text-muted-foreground/40" strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 p-2">
+                    <span className="font-medium text-sm">{option.name}</span>
+                    <span className="text-xs text-muted-foreground line-clamp-2">
+                      {option.role}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent Name Input */}
+          <div className="space-y-2">
+            <Label htmlFor="agent-name">Agent Name</Label>
+            <Input
+              id="agent-name"
+              placeholder="Enter agent name"
+              value={newAgentName}
+              onChange={(e) => setNewAgentName(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => handleCreateDialogClose(false)}
+            disabled={createAgentMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateAgent}
+            disabled={!selectedTemplateId || !newAgentName.trim() || createAgentMutation.isPending}
+          >
+            {createAgentMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Agent"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  // No agents state
+  if (!agents || agents.length === 0) {
+    return (
+      <>
+        <PageLayout
+          title="Agent"
+          description="Configure and manage your AI agent settings."
+          icon={IconRobot}
+        >
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <IconRobot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="font-medium mb-1">No agents yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first AI agent to get started.
+            </p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <IconPlus className="mr-2 h-4 w-4" />
+              Create Agent
+            </Button>
+          </div>
+        </PageLayout>
+        {createAgentDialog}
+      </>
+    )
+  }
+
   return (
+    <>
     <PageLayout
       title="Agent"
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
-      actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
+      actions={
+        <div className="flex items-center gap-4">
+          {/* Agent Selector */}
+          <Select value={selectedAgentId || ""} onValueChange={setSelectedAgentId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => setShowCreateDialog(true)}>
+            <IconPlus className="mr-1 h-4 w-4" />
+            New Agent
+          </Button>
+          <SaveStatusIndicator status={status} lastSaved={lastSaved} />
+        </div>
+      }
     >
+      {isLoadingAgent ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <div className="px-4 lg:px-6">
-        <Tabs defaultValue="general" className="w-full p-2 bg-muted">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-2 bg-muted">
           <TabsList>
             <TabsTrigger value="general">
               <IconSettings className="size-4" />
@@ -191,7 +624,12 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="agent-name">Agent Name</Label>
-                  <Input id="agent-name" placeholder="My AI Assistant" defaultValue="Customer Support Agent" />
+                  <Input
+                    id="agent-name"
+                    placeholder="My AI Assistant"
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -261,15 +699,16 @@ export default function AgentPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
-                  <Select defaultValue="gpt-4">
+                  <Select value={modelName} onValueChange={setModelName}>
                     <SelectTrigger id="model" className="w-full">
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gpt-4">GPT-4</SelectItem>
                       <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                      <SelectItem value="gpt-3.5">GPT-3.5 Turbo</SelectItem>
-                      <SelectItem value="claude-3">Claude 3</SelectItem>
+                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                      <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                      <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -290,21 +729,6 @@ export default function AgentPage() {
                   <p className="text-xs text-muted-foreground">Controls randomness in responses</p>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="max-tokens">Max Tokens</Label>
-                    <span className="text-sm text-muted-foreground">{maxTokens[0]}</span>
-                  </div>
-                  <Slider
-                    id="max-tokens"
-                    value={maxTokens}
-                    onValueChange={setMaxTokens}
-                    min={100}
-                    max={4000}
-                    step={100}
-                  />
-                  <p className="text-xs text-muted-foreground">Maximum length of responses</p>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -318,32 +742,30 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="voice-provider">Voice Provider</Label>
-                  <Select defaultValue="elevenlabs">
+                  <Select value={voiceProvider} onValueChange={setVoiceProvider}>
                     <SelectTrigger id="voice-provider" className="w-full">
                       <SelectValue placeholder="Select provider" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
                       <SelectItem value="openai">OpenAI TTS</SelectItem>
-                      <SelectItem value="google">Google Cloud TTS</SelectItem>
+                      <SelectItem value="deepgram">Deepgram</SelectItem>
                       <SelectItem value="azure">Azure Speech</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="voice">Voice</Label>
-                  <Select defaultValue="rachel">
-                    <SelectTrigger id="voice" className="w-full">
-                      <SelectValue placeholder="Select voice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rachel">Rachel (Female, US)</SelectItem>
-                      <SelectItem value="adam">Adam (Male, US)</SelectItem>
-                      <SelectItem value="bella">Bella (Female, UK)</SelectItem>
-                      <SelectItem value="josh">Josh (Male, US)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="voice">Voice ID</Label>
+                  <Input
+                    id="voice"
+                    placeholder="Enter voice ID"
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The voice ID from your provider (e.g., ElevenLabs voice ID)
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -873,24 +1295,14 @@ export default function AgentPage() {
                     <Label htmlFor="system-prompt">System Prompt</Label>
                     <Textarea
                       id="system-prompt"
-                      placeholder="Raw system prompt..."
+                      placeholder="Enter your agent's system prompt..."
                       rows={12}
                       className="font-mono text-xs"
-                      defaultValue={`You are a professional customer support agent for [Company Name].
-
-PRIMARY GOAL: ${shouldDo[0] || "Resolve customer issues and provide support"}
-
-BEHAVIORAL RULES:
-Should Do:
-${shouldDo.map((item) => `- ${item}`).join("\n")}
-
-Should Not Do:
-${shouldNotDo.map((item) => `- ${item}`).join("\n")}
-
-Always be friendly, helpful, and professional. Ask clarifying questions when needed.`}
+                      value={agentPrompt}
+                      onChange={(e) => setAgentPrompt(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Changes here will override the structured rules above
+                      This is the main instruction that guides your agent's behavior
                     </p>
                   </div>
                 </CardContent>
@@ -908,7 +1320,10 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
                     <Label>Allow Interruptions</Label>
                     <p className="text-xs text-muted-foreground">User can interrupt agent while speaking</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={allowInterruptions}
+                    onCheckedChange={setAllowInterruptions}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -923,13 +1338,26 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="max-duration">Max Call Duration (min)</Label>
-                    <Input id="max-duration" type="number" defaultValue="30" />
+                    <Label htmlFor="max-duration">Max Call Duration (sec)</Label>
+                    <Input
+                      id="max-duration"
+                      type="number"
+                      value={maxDurationSeconds}
+                      onChange={(e) => setMaxDurationSeconds(Number(e.target.value))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {Math.floor(maxDurationSeconds / 60)} minutes
+                    </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="silence-timeout">Silence Timeout (sec)</Label>
-                    <Input id="silence-timeout" type="number" defaultValue="10" />
+                    <Input
+                      id="silence-timeout"
+                      type="number"
+                      value={silenceTimeout}
+                      onChange={(e) => setSilenceTimeout(Number(e.target.value))}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -1217,137 +1645,68 @@ Always be friendly, helpful, and professional. Ask clarifying questions when nee
             </Card>
           </TabsContent>
 
-          <TabsContent value="widget" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Widget Type</CardTitle>
-                <CardDescription>Choose how users can interact with your agent</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup defaultValue="both" className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="chat" id="chat" />
-                    <Label htmlFor="chat">Chat Only</Label>
+          <TabsContent value="widget" className="mt-6">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left column - Settings & Embed Code */}
+              <div className="flex-1 space-y-6">
+                {isLoadingWidget ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="voice" id="voice" />
-                    <Label htmlFor="voice">Voice Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="both" id="both" />
-                    <Label htmlFor="both">Both</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Appearance</CardTitle>
-                <CardDescription>Customize how the widget looks on your website</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Select defaultValue="right">
-                      <SelectTrigger id="position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="left">Bottom Left</SelectItem>
-                        <SelectItem value="right">Bottom Right</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="side-spacing">Side Spacing</Label>
-                    <div className="relative">
-                      <Input id="side-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bottom-spacing">Bottom Spacing</Label>
-                    <div className="relative">
-                      <Input id="bottom-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label>Primary Color</Label>
-                    <ColorInput
-                      value="#6366f1"
-                      onChange={() => {}}
-                      onReset={() => {}}
-                      placeholder="#6366f1"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="agent-display-name">Display Name</Label>
-                    <Input id="agent-display-name" placeholder="Sarah" defaultValue="Sarah" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="widget-description">Widget Description</Label>
-                  <Textarea
-                    id="widget-description"
-                    placeholder="How can I help you today?"
-                    defaultValue="Hi! I'm here to help you with any questions about our product."
-                    rows={2}
+                ) : widgetConfig ? (
+                  <WebWidgetForm
+                    widgetConfig={widgetConfig}
+                    agentId={selectedAgentId ?? undefined}
+                    hideHeader
+                    onFormChange={handleDispatchAction}
                   />
-                </div>
-              </CardContent>
-            </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-medium mb-1">No widget configured</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Widget configuration will be available once you save your agent settings.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Embed Code</CardTitle>
-                <CardDescription>
-                  Add this code to your website before the closing &lt;/body&gt; tag
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative">
-                  <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-sm">
-                    <code>{`(function (d, t) {
-  if (typeof window === 'undefined') return;
-  var v = d.createElement(t),
-      s = d.getElementsByTagName(t)[0];
-  v.onload = function () {
-    window.audial.loadWidget({
-      agentId: 'agent_abc123xyz',
-      apiKey: 'pk_live_xyz789ghi012',
-    });
-  };
-  v.type = "module";
-  v.src = "https://app.audial.co/widget/bundle.mjs";
-  s.parentNode.insertBefore(v, s);
-})(document, 'script');`}</code>
-                  </pre>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8 p-0 text-slate-400 hover:text-slate-50"
-                    onClick={() => toast.success("Embed code copied to clipboard")}
-                  >
-                    <IconCopy className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Right column - Live Preview */}
+              <div className="w-full lg:w-[440px] shrink-0">
+                <Card className="h-full min-h-[500px] border-0 shadow-none bg-transparent">
+                  <CardHeader className="pt-0">
+                    <CardTitle className="text-base">Live Preview</CardTitle>
+                    <CardDescription>
+                      Interact with your widget in real-time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="relative h-[calc(100%-5rem)]">
+                    {!defaultApiKey?.id ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="font-medium mb-1">API Key Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Create a public API key in Settings &gt; API Keys to preview the widget.
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        id={WIDGET_CONTAINER_ID}
+                        className="h-full w-full min-h-[400px] flex justify-center"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
+      )}
     </PageLayout>
+    {createAgentDialog}
+    </>
   )
 }

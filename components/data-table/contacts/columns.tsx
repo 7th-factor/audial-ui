@@ -5,12 +5,30 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-import { statuses, tags } from "./data"
-import type { Contact } from "./schema"
 import { DataTableColumnHeader } from "../data-table-column-header"
 import { DataTableRowActions } from "../data-table-row-actions"
+import type { Customer } from "@/lib/api"
 
-export const columns: ColumnDef<Contact>[] = [
+// Helper to get display name from Customer
+function getDisplayName(customer: Customer): string {
+  if (customer.firstName || customer.lastName) {
+    return [customer.firstName, customer.lastName].filter(Boolean).join(" ")
+  }
+  return "Unknown"
+}
+
+// Helper to get initials from Customer
+function getInitials(customer: Customer): string {
+  const name = getDisplayName(customer)
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+export const columns: ColumnDef<Customer>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -33,84 +51,72 @@ export const columns: ColumnDef<Contact>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "name",
+    accessorKey: "firstName",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
     cell: ({ row }) => {
-      const initials = row.original.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
+      const customer = row.original
+      const displayName = getDisplayName(customer)
+      const initials = getInitials(customer)
+
       return (
-        <Link href={`/contacts/${row.original.id}`} className="flex items-center gap-3 hover:underline">
+        <Link href={`/contacts/${customer.id}`} className="flex items-center gap-3 hover:underline">
           <Avatar className="size-8">
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-medium">{row.getValue("name")}</span>
-            <span className="text-xs text-muted-foreground">{row.original.email}</span>
+            <span className="font-medium">{displayName}</span>
+            <span className="text-xs text-muted-foreground">
+              {customer.email || customer.phoneNumber || "No contact info"}
+            </span>
           </div>
         </Link>
       )
     },
   },
   {
-    accessorKey: "company",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Company" />,
+    accessorKey: "email",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
     cell: ({ row }) => {
       return (
-        <div className="flex flex-col">
-          <span>{row.getValue("company")}</span>
-          <span className="text-xs text-muted-foreground">{row.original.role}</span>
-        </div>
+        <span className="text-sm">
+          {row.original.email || <span className="text-muted-foreground">-</span>}
+        </span>
       )
     },
   },
   {
-    accessorKey: "status",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+    accessorKey: "phoneNumber",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
     cell: ({ row }) => {
-      const status = statuses.find((s) => s.value === row.getValue("status"))
-      if (!status) return null
       return (
-        <div className="flex w-[100px] items-center">
-          {status.icon && <status.icon className="mr-2 size-4 text-muted-foreground" />}
-          <span>{status.label}</span>
-        </div>
+        <span className="text-sm">
+          {row.original.phoneNumber || <span className="text-muted-foreground">-</span>}
+        </span>
       )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
     },
   },
   {
-    accessorKey: "tags",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Tags" />,
+    accessorKey: "ongoingIssues",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Issues" />,
     cell: ({ row }) => {
-      const rowTags = row.getValue("tags") as string[]
+      const issues = row.original.ongoingIssues
+      if (!issues || issues.length === 0) {
+        return <span className="text-muted-foreground">-</span>
+      }
       return (
         <div className="flex flex-wrap gap-1">
-          {rowTags.map((tag) => {
-            const tagData = tags.find((t) => t.value === tag)
-            return (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tagData?.label || tag}
-              </Badge>
-            )
-          })}
+          <Badge variant="outline" className="text-xs">
+            {issues.length} issue{issues.length > 1 ? "s" : ""}
+          </Badge>
         </div>
       )
     },
-    filterFn: (row, id, value) => {
-      const rowTags = row.getValue(id) as string[]
-      return value.some((v: string) => rowTags.includes(v))
-    },
   },
   {
-    accessorKey: "lastContact",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Last Contact" />,
+    accessorKey: "updatedAt",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Last Updated" />,
     cell: ({ row }) => {
-      const date = new Date(row.getValue("lastContact"))
+      const date = new Date(row.original.updatedAt)
       return <div className="w-[100px]">{date.toLocaleDateString()}</div>
     },
   },
