@@ -8,9 +8,7 @@ export async function exchangeToken(idToken: string, signal?: AbortSignal): Prom
     ? typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
     : process.env.NEXT_PUBLIC_API_URL || 'https://audial-api-staging.fly.dev';
   
-  const endpoint = useLocalApi 
-    ? '/api/auth/exchange-token'
-    : '/api/v1/auth/exchange-token';
+  const endpoint = '/api/auth/exchange-token';
   
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -19,7 +17,7 @@ export async function exchangeToken(idToken: string, signal?: AbortSignal): Prom
     const res = await fetch(`${baseURL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firebase_token: idToken }),
+      body: JSON.stringify({ code: idToken }),
       signal: signal ?? controller.signal,
     });
     
@@ -31,11 +29,11 @@ export async function exchangeToken(idToken: string, signal?: AbortSignal): Prom
     }
     
     const json = await res.json();
-    // Support both local API format (accessToken) and backend API format (data.accessToken)
-    const token = json?.accessToken ?? json?.data?.accessToken;
+    // Support various response formats: idToken, accessToken, or nested in data
+    const token = json?.idToken ?? json?.accessToken ?? json?.data?.idToken ?? json?.data?.accessToken;
     if (!token || typeof token !== 'string') {
       console.error("[exchangeToken] Invalid response format:", json);
-      throw new Error('No accessToken in response');
+      throw new Error('No idToken or accessToken in response');
     }
     
     console.log("[exchangeToken] ✅ Token exchange successful");
