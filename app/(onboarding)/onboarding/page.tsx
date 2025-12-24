@@ -23,7 +23,7 @@ import type {
   PhoneNumberFormValues,
   OnboardingData,
 } from "@/lib/validations/onboarding"
-import { mockPhoneNumbers, countryOptions, agentOptions } from "@/lib/validations/onboarding"
+import { countryOptions, agentOptions } from "@/lib/validations/onboarding"
 
 // Agent templates for creating agents during onboarding
 const agentTemplates: Record<string, Partial<CreateAgentInput>> = {
@@ -100,8 +100,32 @@ export default function OnboardingPage() {
     setCurrentStep(2)
   }
 
-  const handleAgentSelectionNext = (agentSelection: AgentSelectionFormValues) => {
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false)
+  const [workspaceCreated, setWorkspaceCreated] = useState(false)
+
+  const handleAgentSelectionNext = async (agentSelection: AgentSelectionFormValues) => {
     setData((prev) => ({ ...prev, agentSelection }))
+
+    // Create workspace before phone number step (needed for API calls)
+    if (!workspaceCreated && data.businessInfo) {
+      setIsCreatingWorkspace(true)
+      try {
+        console.log("Creating workspace:", data.businessInfo.businessName)
+        await workspaceManager.createWorkspace({
+          name: data.businessInfo.businessName,
+          description: data.businessInfo.description,
+        })
+        setWorkspaceCreated(true)
+        console.log("Workspace created successfully")
+      } catch (error) {
+        console.error("Failed to create workspace:", error)
+        toast.error("Failed to create workspace. Please try again.")
+        setIsCreatingWorkspace(false)
+        return // Don't proceed to next step
+      }
+      setIsCreatingWorkspace(false)
+    }
+
     setCurrentStep(3)
   }
 
@@ -147,12 +171,15 @@ export default function OnboardingPage() {
 
   const handleOnboardingComplete = async (finalData: OnboardingData) => {
     try {
-      // Create workspace with business name
-      console.log("Creating workspace:", finalData.businessInfo.businessName)
-      await workspaceManager.createWorkspace({
-        name: finalData.businessInfo.businessName,
-        description: finalData.businessInfo.description,
-      })
+      // Create workspace if not already created (happens when phone step is skipped)
+      if (!workspaceCreated) {
+        console.log("Creating workspace:", finalData.businessInfo.businessName)
+        await workspaceManager.createWorkspace({
+          name: finalData.businessInfo.businessName,
+          description: finalData.businessInfo.description,
+        })
+        setWorkspaceCreated(true)
+      }
 
       // Create agent from selected template
       const selectedAgentId = finalData.agentSelection.agentId
@@ -186,12 +213,11 @@ export default function OnboardingPage() {
 
   // Get selected phone info for payment step
   const getSelectedPhoneInfo = () => {
-    const phoneId = data.phoneNumber?.phoneNumber
-    const phone = mockPhoneNumbers.find((p) => p.id === phoneId)
+    const phoneNumber = data.phoneNumber?.phoneNumber
     const country = countryOptions.find((c) => c.value === data.phoneNumber?.country)
-    if (phone) {
+    if (phoneNumber) {
       return {
-        number: phone.number,
+        number: phoneNumber,
         flag: country?.flag ?? "🇺🇸",
       }
     }
@@ -226,6 +252,7 @@ export default function OnboardingPage() {
               defaultValues={data.agentSelection}
               onNext={handleAgentSelectionNext}
               onBack={handleBack}
+              isLoading={isCreatingWorkspace}
             />
           )}
           {currentStep === 3 && (
