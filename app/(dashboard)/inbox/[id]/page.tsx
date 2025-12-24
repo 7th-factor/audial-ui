@@ -13,7 +13,8 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { getMockCall, type MockCall } from '@/lib/mock-data/calls';
+import { useCall, type CallDetail } from '@/lib/api';
+import type { MockCall } from '@/lib/mock-data/calls';
 import { CallTranscriptView } from '@/components/calls/call-transcript';
 import {
   CallSidebar,
@@ -27,6 +28,53 @@ import {
 import { CallsListSidebar, hasActiveFilters } from '@/components/calls/calls-list-sidebar';
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
+
+// Transform API CallDetail to MockCall format for UI components
+function transformCallDetailToMockCall(call: CallDetail): MockCall {
+  const customerName = call.customer
+    ? [call.customer.first_name, call.customer.last_name].filter(Boolean).join(' ') || 'Unknown'
+    : 'Unknown';
+
+  const durationMins = call.durationSecs ? Math.floor(call.durationSecs / 60) : 0;
+  const durationSecs = call.durationSecs ? call.durationSecs % 60 : 0;
+  const duration = `${durationMins}:${durationSecs.toString().padStart(2, '0')}`;
+
+  return {
+    id: call.id,
+    callId: `#${call.id.slice(0, 8).toUpperCase()}`,
+    agent: call.agentSettings?.name || 'AI Assistant',
+    customer: call.customerPhone || call.customer?.phone_number || 'Unknown',
+    duration,
+    score: '0',
+    date: call.createdAt,
+    category: 'support',
+    source: call.agentPhone?.provider as MockCall['source'] || 'Unknown',
+    origin: 'real',
+    assistantName: call.agentSettings?.name || 'AI Assistant',
+    agentName: call.agentSettings?.name || 'AI Assistant',
+    customerName,
+    customerPhone: call.customerPhone || call.customer?.phone_number || undefined,
+    direction: call.type === 'inboundPhoneCall' ? 'inbound' : 'outbound',
+    status: call.status,
+    startTime: call.startedAt || call.createdAt,
+    recordingUrl: call.audioUrl || undefined,
+    transcript: call.messages?.length ? {
+      segments: call.messages.map((msg, idx) => ({
+        text: msg.content,
+        startTime: msg.start_time,
+        endTime: msg.end_time,
+        speaker: {
+          id: msg.sender === 'assistant' ? 'agent' : 'user',
+          name: msg.sender === 'assistant' ? (call.agentSettings?.name || 'AI Assistant') : customerName,
+        },
+      })),
+    } : undefined,
+    summary: call.analysis ? {
+      callSummary: call.analysis.summary,
+      keywords: call.analysis.keywords,
+    } : undefined,
+  };
+}
 
 // Inner component that uses useSearchParams
 function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -49,9 +97,14 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   const hasFilterContext = useMemo(() => hasActiveFilters(searchParams), [searchParams]);
   const [callsListSidebarOpen, setCallsListSidebarOpen] = useState(true);
 
-  // Get mock call data
-  const callData = getMockCall(callId);
-  const isLoading = false;
+  // Fetch call data from API
+  const { data: apiCallData, isLoading, error } = useCall(callId);
+
+  // Transform API data to MockCall format for UI components
+  const callData = useMemo(() => {
+    if (!apiCallData) return null;
+    return transformCallDetailToMockCall(apiCallData);
+  }, [apiCallData]);
 
   // Calculate duration from transcript segments if not in call data
   const calculatedDuration = useMemo(() => {
@@ -166,14 +219,23 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
     [callData, isLoading, calculatedDuration]
   );
 
-  // Call not found state
-  if (!callData) {
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Error or not found state
+  if (error || !callData) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h3 className="text-lg font-semibold">Call Not Found</h3>
           <p className="text-sm text-muted-foreground">
-            The call you&apos;re looking for doesn&apos;t exist.
+            {error instanceof Error ? error.message : "The call you're looking for doesn't exist."}
           </p>
         </div>
       </div>
