@@ -1,6 +1,7 @@
 import type React from "react"
 import { AuthGuard } from "@/lib/auth/auth-guard"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { AgentProvider } from "@/lib/contexts/agent-context"
 
 export default function DashboardLayout({
   children,
@@ -9,7 +10,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <DashboardShell>{children}</DashboardShell>
+      <AgentProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </AgentProvider>
     </AuthGuard>
   )
 }
