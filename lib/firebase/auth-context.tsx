@@ -81,7 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { current: null };
   })();
 
-  // Exchange Firebase ID token for custom JWT via backend API
+  // Use Firebase ID token directly for API authentication
+  // The API validates Firebase tokens directly via the Authorization header
   const exchangeToken = useCallback(
     async (firebaseUser: User): Promise<string | null> => {
       try {
@@ -90,15 +91,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (lastExchangeKeyRef.current === key) {
           return tokenManager.getToken() ?? null;
         }
-        console.log("[AuthProvider] Exchanging Firebase token for custom JWT...");
-        const customJwt = await doExchange(idToken);
-        setCustomToken(customJwt);
-        tokenManager.setToken(customJwt);
+        console.log("[AuthProvider] Using Firebase ID token for API authentication...");
+        setCustomToken(idToken);
+        tokenManager.setToken(idToken);
         lastExchangeKeyRef.current = key;
-        console.log("[AuthProvider] ✅ Token exchange successful");
-        return customJwt;
+        console.log("[AuthProvider] ✅ Firebase token set successfully");
+        return idToken;
       } catch (error) {
-        console.error("[AuthProvider] ❌ Token exchange failed:", error);
+        console.error("[AuthProvider] ❌ Failed to get Firebase token:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("[AuthProvider] Error details:", {
           message: errorMessage,
