@@ -59,6 +59,12 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { agentOptions } from "@/lib/validations/onboarding"
+import { useGetWidgetConfigByAgent } from "@/lib/features/widget"
+import { useDefaultPublicApiKey } from "@/lib/features/api-keys"
+import { WebWidgetForm } from "@/components/widget-config/web-widget-form"
+
+// Widget preview container ID
+const WIDGET_CONTAINER_ID = "audial-widget-preview-container"
 
 // Agent template configurations for creation
 const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
@@ -116,6 +122,109 @@ export default function AgentPage() {
 
   // Fetch the selected agent
   const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
+
+  // Fetch widget config for the selected agent
+  const { data: widgetConfig, isLoading: isLoadingWidget } = useGetWidgetConfigByAgent(selectedAgentId ?? "")
+
+  // Widget preview state - always enabled when on widget tab
+  const { data: defaultApiKey } = useDefaultPublicApiKey()
+  const [activeTab, setActiveTab] = useState("general")
+  const widgetScriptRef = React.useRef<HTMLScriptElement | null>(null)
+
+  // Load/unload widget preview when on widget tab
+  const widgetPreviewEnabled = activeTab === "widget"
+
+  // Helper to clean up widget DOM elements
+  const cleanupWidget = useCallback(() => {
+    // Call destroy if available
+    if (window.audial?.destroy) {
+      window.audial.destroy()
+    }
+    // Remove the main widget container
+    const widgetRoot = document.getElementById("audial-widget")
+    if (widgetRoot) {
+      widgetRoot.remove()
+    }
+    // Remove any widget DOM elements that might persist
+    const widgetElements = document.querySelectorAll('[id^="audial"], [class*="audial"]')
+    widgetElements.forEach((el) => el.remove())
+    // Also check for common widget container patterns
+    const shadowHosts = document.querySelectorAll('[data-audial-widget]')
+    shadowHosts.forEach((el) => el.remove())
+    // Remove script
+    if (widgetScriptRef.current) {
+      widgetScriptRef.current.remove()
+      widgetScriptRef.current = null
+    }
+    // Reset window.audial to force re-initialization
+    if (window.audial) {
+      delete (window as Window & { audial?: unknown }).audial
+    }
+  }, [])
+
+  // Dispatch config updates to the widget preview in real-time
+  const handleDispatchAction = useCallback((payload: Record<string, unknown>) => {
+    if (typeof window.audial === "undefined") return;
+    window.audial.dispatchAction("update-config", payload);
+  }, []);
+
+  useEffect(() => {
+    if (!widgetPreviewEnabled || !selectedAgentId || !defaultApiKey?.id) {
+      cleanupWidget()
+      return
+    }
+
+    // Load the widget script
+    const script = document.createElement("script")
+    script.type = "module"
+    script.src = "/widget/bundle.mjs" // Local development bundle
+    script.onload = () => {
+      if (window.audial) {
+        window.audial.loadWidget({
+          agentId: selectedAgentId,
+          apiKey: defaultApiKey.id,
+          baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+          options: {
+            containerId: WIDGET_CONTAINER_ID,
+            previewMode: true,
+            defaultOpen: true,
+            debug: false,
+          },
+        })
+      }
+    }
+    script.onerror = () => {
+      // Try production URL if local fails
+      const prodScript = document.createElement("script")
+      prodScript.type = "module"
+      prodScript.src = "https://app.audial.co/widget/bundle.mjs"
+      prodScript.onload = () => {
+        if (window.audial) {
+          window.audial.loadWidget({
+            agentId: selectedAgentId,
+            apiKey: defaultApiKey.id,
+            baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+            options: {
+              containerId: WIDGET_CONTAINER_ID,
+              previewMode: true,
+              defaultOpen: true,
+              debug: false,
+            },
+          })
+        }
+      }
+      prodScript.onerror = () => {
+        toast.error("Failed to load widget preview")
+      }
+      widgetScriptRef.current = prodScript
+      document.body.appendChild(prodScript)
+    }
+
+    widgetScriptRef.current = script
+    document.body.appendChild(script)
+
+    return () => cleanupWidget()
+  }, [widgetPreviewEnabled, selectedAgentId, defaultApiKey?.id, cleanupWidget])
 
   // Auto-select first agent when agents load
   useEffect(() => {
@@ -455,7 +564,7 @@ export default function AgentPage() {
         </div>
       ) : (
       <div className="px-4 lg:px-6">
-        <Tabs defaultValue="general" className="w-full p-2 bg-muted">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-2 bg-muted">
           <TabsList>
             <TabsTrigger value="general">
               <IconSettings className="size-4" />
@@ -1536,134 +1645,62 @@ export default function AgentPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="widget" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Widget Type</CardTitle>
-                <CardDescription>Choose how users can interact with your agent</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup defaultValue="both" className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="chat" id="chat" />
-                    <Label htmlFor="chat">Chat Only</Label>
+          <TabsContent value="widget" className="mt-6">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left column - Settings & Embed Code */}
+              <div className="flex-1 space-y-6">
+                {isLoadingWidget ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="voice" id="voice" />
-                    <Label htmlFor="voice">Voice Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="both" id="both" />
-                    <Label htmlFor="both">Both</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Appearance</CardTitle>
-                <CardDescription>Customize how the widget looks on your website</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Select defaultValue="right">
-                      <SelectTrigger id="position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="left">Bottom Left</SelectItem>
-                        <SelectItem value="right">Bottom Right</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="side-spacing">Side Spacing</Label>
-                    <div className="relative">
-                      <Input id="side-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bottom-spacing">Bottom Spacing</Label>
-                    <div className="relative">
-                      <Input id="bottom-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label>Primary Color</Label>
-                    <ColorInput
-                      value="#6366f1"
-                      onChange={() => {}}
-                      onReset={() => {}}
-                      placeholder="#6366f1"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="agent-display-name">Display Name</Label>
-                    <Input id="agent-display-name" placeholder="Sarah" defaultValue="Sarah" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="widget-description">Widget Description</Label>
-                  <Textarea
-                    id="widget-description"
-                    placeholder="How can I help you today?"
-                    defaultValue="Hi! I'm here to help you with any questions about our product."
-                    rows={2}
+                ) : widgetConfig ? (
+                  <WebWidgetForm
+                    widgetConfig={widgetConfig}
+                    agentId={selectedAgentId ?? undefined}
+                    hideHeader
+                    onFormChange={handleDispatchAction}
                   />
-                </div>
-              </CardContent>
-            </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-medium mb-1">No widget configured</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Widget configuration will be available once you save your agent settings.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Embed Code</CardTitle>
-                <CardDescription>
-                  Add this code to your website before the closing &lt;/body&gt; tag
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative">
-                  <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-sm">
-                    <code>{`(function (d, t) {
-  if (typeof window === 'undefined') return;
-  var v = d.createElement(t),
-      s = d.getElementsByTagName(t)[0];
-  v.onload = function () {
-    window.audial.loadWidget({
-      agentId: 'agent_abc123xyz',
-      apiKey: 'pk_live_xyz789ghi012',
-    });
-  };
-  v.type = "module";
-  v.src = "https://app.audial.co/widget/bundle.mjs";
-  s.parentNode.insertBefore(v, s);
-})(document, 'script');`}</code>
-                  </pre>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8 p-0 text-slate-400 hover:text-slate-50"
-                    onClick={() => toast.success("Embed code copied to clipboard")}
-                  >
-                    <IconCopy className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Right column - Live Preview */}
+              <div className="w-full lg:w-[440px] shrink-0">
+                <Card className="h-full min-h-[500px] border-0 shadow-none bg-transparent">
+                  <CardHeader className="pt-0">
+                    <CardTitle className="text-base">Live Preview</CardTitle>
+                    <CardDescription>
+                      Interact with your widget in real-time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="relative h-[calc(100%-5rem)]">
+                    {!defaultApiKey?.id ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="font-medium mb-1">API Key Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Create a public API key in Settings &gt; API Keys to preview the widget.
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        id={WIDGET_CONTAINER_ID}
+                        className="h-full w-full min-h-[400px] flex justify-center"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

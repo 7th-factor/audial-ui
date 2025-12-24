@@ -28,6 +28,8 @@ declare global {
     audial?: {
       loadWidget: (config: WidgetConfig) => void
       updateConfig?: (config: Partial<WidgetConfig>) => void
+      dispatchAction: (action: string, payload: Record<string, unknown>) => void
+      destroy?: () => void
     }
   }
 }
@@ -35,9 +37,9 @@ declare global {
 interface WidgetConfig {
   agentId: string
   apiKey: string
-  baseUrl: string
-  options: {
-    containerId: string
+  baseUrl?: string
+  options?: {
+    containerId?: string
     previewMode?: boolean
     defaultOpen?: boolean
     debug?: boolean
