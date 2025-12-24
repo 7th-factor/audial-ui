@@ -1,15 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { IconKey, IconPlus, IconWorld, IconLock } from '@tabler/icons-react'
+import { IconKey, IconPlus, IconWorld, IconLock, IconCopy, IconCheck } from '@tabler/icons-react'
 import { Loader2 } from 'lucide-react'
 
 import { PageLayout } from '@/components/page-layout'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/data-table'
-import { columns } from '@/components/data-table/api-keys/columns'
+import { createColumns } from '@/components/data-table/api-keys/columns'
 import type { CombinedApiKey } from '@/components/data-table/api-keys/schema'
 import { usePrivateKeys, usePublicKeys, type PrivateKey, type PublicKey } from '@/lib/api'
+import {
+  useCreateApiKey,
+  useDeleteApiKey,
+  KeyType,
+} from '@/lib/features/api-keys'
 import {
   Dialog,
   DialogContent,
@@ -18,6 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
@@ -93,10 +108,25 @@ export default function ApiKeysPage() {
     error: publicError,
   } = usePublicKeys()
 
+  // Mutations
+  const createApiKey = useCreateApiKey()
+  const deleteApiKey = useDeleteApiKey()
+
+  // UI State
   const [selectedRows, setSelectedRows] = React.useState<CombinedApiKey[]>([])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
   const [newKeyName, setNewKeyName] = React.useState('')
   const [selectedKeyType, setSelectedKeyType] = React.useState<ApiKeyType | null>(null)
+
+  // Key Created Dialog State
+  const [showKeyCreatedDialog, setShowKeyCreatedDialog] = React.useState(false)
+  const [createdKeySecret, setCreatedKeySecret] = React.useState<string | null>(null)
+  const [createdKeyName, setCreatedKeyName] = React.useState<string | null>(null)
+  const [copied, setCopied] = React.useState(false)
+
+  // Delete Confirmation State
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+  const [keyToDelete, setKeyToDelete] = React.useState<CombinedApiKey | null>(null)
 
   const isLoading = isLoadingPrivate || isLoadingPublic
   const error = privateError || publicError
@@ -106,12 +136,30 @@ export default function ApiKeysPage() {
     [privateKeys, publicKeys]
   )
 
-  const handleCreateKey = () => {
-    if (!selectedKeyType) return
-    toast.success(`${selectedKeyType === 'private' ? 'Private' : 'Public'} API key "${newKeyName}" created`)
-    setNewKeyName('')
-    setSelectedKeyType(null)
-    setShowNewDialog(false)
+  const handleCreateKey = async () => {
+    if (!selectedKeyType || !newKeyName.trim()) return
+
+    try {
+      const result = await createApiKey.mutateAsync({
+        name: newKeyName.trim(),
+        description: null,
+        type: selectedKeyType,
+      })
+
+      // Close create dialog and show secret
+      setShowNewDialog(false)
+      setCreatedKeyName(newKeyName.trim())
+      setCreatedKeySecret(result.key)
+      setShowKeyCreatedDialog(true)
+
+      // Reset form
+      setNewKeyName('')
+      setSelectedKeyType(null)
+
+      toast.success(`${selectedKeyType === 'private' ? 'Private' : 'Public'} API key created`)
+    } catch {
+      // Error handling is done by makeMutation
+    }
   }
 
   const handleDialogClose = (open: boolean) => {
@@ -119,6 +167,49 @@ export default function ApiKeysPage() {
     if (!open) {
       setNewKeyName('')
       setSelectedKeyType(null)
+    }
+  }
+
+  const handleKeyCreatedDialogClose = () => {
+    setShowKeyCreatedDialog(false)
+    setCreatedKeySecret(null)
+    setCreatedKeyName(null)
+    setCopied(false)
+  }
+
+  const handleCopyKey = async () => {
+    if (!createdKeySecret) return
+    await navigator.clipboard.writeText(createdKeySecret)
+    setCopied(true)
+    toast.success('API key copied to clipboard')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDeleteClick = React.useCallback((key: CombinedApiKey) => {
+    setKeyToDelete(key)
+    setShowDeleteDialog(true)
+  }, [])
+
+  // Create columns with delete handler
+  const tableColumns = React.useMemo(
+    () => createColumns({ onDelete: handleDeleteClick }),
+    [handleDeleteClick]
+  )
+
+  const handleDeleteConfirm = async () => {
+    if (!keyToDelete) return
+
+    try {
+      await deleteApiKey.mutateAsync({
+        type: keyToDelete.type === 'private' ? KeyType.PRIVATE : KeyType.PUBLIC,
+        keyId: keyToDelete.id,
+      })
+
+      toast.success(`API key "${keyToDelete.name}" deleted`)
+      setShowDeleteDialog(false)
+      setKeyToDelete(null)
+    } catch {
+      // Error handling is done by makeMutation
     }
   }
 
@@ -187,7 +278,7 @@ export default function ApiKeysPage() {
       >
         <div className="px-4 lg:px-6">
           <DataTable
-            columns={columns}
+            columns={tableColumns}
             data={apiKeys}
             onSelectionChange={(rows) => setSelectedRows(rows as CombinedApiKey[])}
             searchColumnId="name"
@@ -276,15 +367,99 @@ export default function ApiKeysPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleDialogClose(false)}>
+            <Button variant="outline" onClick={() => handleDialogClose(false)} disabled={createApiKey.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleCreateKey} disabled={!newKeyName.trim() || !selectedKeyType}>
-              Create Key
+            <Button
+              onClick={handleCreateKey}
+              disabled={!newKeyName.trim() || !selectedKeyType || createApiKey.isPending}
+            >
+              {createApiKey.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Key'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Key Created Dialog - Shows the secret only once */}
+      <Dialog open={showKeyCreatedDialog} onOpenChange={(open) => !open && handleKeyCreatedDialogClose()}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>API Key Created</DialogTitle>
+            <DialogDescription>
+              Your API key has been created. Copy this key now — you won&apos;t be able to see it again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Key Name</Label>
+              <p className="text-sm font-medium">{createdKeyName}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>API Key</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm break-all">
+                  {createdKeySecret}
+                </code>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyKey}
+                  className="shrink-0"
+                >
+                  {copied ? (
+                    <IconCheck className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <IconCopy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Store this key securely. For security reasons, it cannot be displayed again.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleKeyCreatedDialogClose}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete API Key</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the API key &quot;{keyToDelete?.name}&quot;? This action cannot be undone
+              and any applications using this key will lose access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteApiKey.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteApiKey.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteApiKey.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

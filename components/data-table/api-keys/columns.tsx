@@ -5,9 +5,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 import type { CombinedApiKey } from "./schema"
 import { DataTableColumnHeader } from "../data-table-column-header"
-import { DataTableRowActions } from "../data-table-row-actions"
+import { ApiKeysRowActions } from "./row-actions"
 
-export const columns: ColumnDef<CombinedApiKey>[] = [
+interface ColumnsConfig {
+  onDelete?: (key: CombinedApiKey) => void
+}
+
+export function createColumns(config?: ColumnsConfig): ColumnDef<CombinedApiKey>[] {
+  return [
   {
     id: "select",
     header: ({ table }) => (
@@ -95,6 +100,15 @@ export const columns: ColumnDef<CombinedApiKey>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => <DataTableRowActions row={row} />,
+    cell: ({ row }) => (
+      <ApiKeysRowActions
+        row={row}
+        onDelete={config?.onDelete ? () => config.onDelete!(row.original) : undefined}
+      />
+    ),
   },
-]
+  ]
+}
+
+// Backwards compatible export for static usage
+export const columns = createColumns()
