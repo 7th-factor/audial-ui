@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -33,8 +32,6 @@ interface CallsListSidebarProps {
   currentCallId: string;
   isOpen: boolean;
   onToggle: () => void;
-  /** If true, sidebar has filter context from URL and should auto-fetch */
-  hasFilterContext: boolean;
 }
 
 /**
@@ -104,10 +101,7 @@ export function CallsListSidebar({
   currentCallId,
   isOpen,
   onToggle,
-  hasFilterContext,
 }: CallsListSidebarProps) {
-  const searchParams = useSearchParams();
-
   // Fetch calls from API
   const { data: callsData, isLoading } = useCalls();
 

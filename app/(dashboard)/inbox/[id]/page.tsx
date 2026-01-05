@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Suspense, useState, useMemo, use } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   FileText,
   Phone,
@@ -25,7 +24,7 @@ import {
   ActionItemsWidget,
   UpsellWidget,
 } from '@/components/calls/call-sidebar';
-import { CallsListSidebar, hasActiveFilters } from '@/components/calls/calls-list-sidebar';
+import { CallsListSidebar } from '@/components/calls/calls-list-sidebar';
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
 
@@ -76,10 +75,8 @@ function transformCallDetailToDisplayData(call: CallDetail): CallDisplayData {
   };
 }
 
-// Inner component that uses useSearchParams
+// Inner component that handles call details
 function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id: string } }) {
-  const searchParams = useSearchParams();
-
   // Handle both Promise and direct params for Next.js 16 compatibility
   const paramsPromise =
     'then' in params && typeof params.then === 'function'
@@ -94,7 +91,6 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   const audioControlRef = React.useRef<{ pause: () => void } | null>(null);
 
   // Sidebar toggle state
-  const hasFilterContext = useMemo(() => hasActiveFilters(searchParams), [searchParams]);
   const [callsListSidebarOpen, setCallsListSidebarOpen] = useState(true);
 
   // Fetch call data from API
@@ -249,7 +245,6 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
         currentCallId={callId}
         isOpen={callsListSidebarOpen}
         onToggle={() => setCallsListSidebarOpen((prev) => !prev)}
-        hasFilterContext={hasFilterContext}
       />
 
       {/* Main Content Area */}
