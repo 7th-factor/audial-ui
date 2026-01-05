@@ -4,13 +4,9 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { format } from "date-fns"
-import { CalendarIcon, Copy, Check, Loader2 } from "lucide-react"
+import { Copy, Check, Loader2 } from "lucide-react"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -30,17 +26,20 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { permissions } from "@/components/data-table/api-keys/data"
+import { useCreateApiKey } from "@/lib/api/hooks/use-api-keys"
 
 const newApiKeySchema = z.object({
   name: z.string().min(1, "Name is required"),
-  permissions: z.array(z.string()).min(1, "Select at least one permission"),
-  expiresAt: z.date().optional(),
+  type: z.enum(["private", "public"]),
+  description: z.string().optional(),
 })
 
 type NewApiKeyFormValues = z.infer<typeof newApiKeySchema>
@@ -48,44 +47,41 @@ type NewApiKeyFormValues = z.infer<typeof newApiKeySchema>
 interface NewApiKeyDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: (data: { name: string; key: string; permissions: string[] }) => void
+  onSuccess?: (data: { name: string; key: string; type: string }) => void
 }
 
 export function NewApiKeyDialog({ open, onOpenChange, onSuccess }: NewApiKeyDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
   const [generatedKey, setGeneratedKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const createApiKey = useCreateApiKey()
 
   const form = useForm<NewApiKeyFormValues>({
     resolver: zodResolver(newApiKeySchema),
     defaultValues: {
       name: "",
-      permissions: ["read"],
-      expiresAt: undefined,
+      type: "private",
+      description: "",
     },
   })
 
   const handleSubmit = async (values: NewApiKeyFormValues) => {
-    try {
-      setIsLoading(true)
-
-      // TODO: Call API to create API key
-      console.log("Creating API key:", values)
-
-      // Simulate API call and key generation
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      // Generate a fake API key for demo
-      const fakeKey = `ak_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
-      setGeneratedKey(fakeKey)
-
-      toast.success("API key created successfully")
-      onSuccess?.({ name: values.name, key: fakeKey, permissions: values.permissions })
-    } catch (error) {
-      toast.error("Failed to create API key. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
+    createApiKey.mutate(
+      {
+        type: values.type,
+        name: values.name,
+        description: values.description || undefined,
+      },
+      {
+        onSuccess: (response) => {
+          setGeneratedKey(response.key)
+          toast.success("API key created successfully")
+          onSuccess?.({ name: values.name, key: response.key, type: values.type })
+        },
+        onError: () => {
+          toast.error("Failed to create API key. Please try again.")
+        },
+      }
+    )
   }
 
   const handleCopy = async () => {
@@ -178,45 +174,28 @@ export function NewApiKeyDialog({ open, onOpenChange, onSuccess }: NewApiKeyDial
 
             <FormField
               control={form.control}
-              name="permissions"
-              render={() => (
+              name="type"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Permissions</FormLabel>
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    {permissions.map((permission) => (
-                      <FormField
-                        key={permission.value}
-                        control={form.control}
-                        name="permissions"
-                        render={({ field }) => {
-                          return (
-                            <FormItem
-                              key={permission.value}
-                              className="flex flex-row items-start space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(permission.value)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...field.value, permission.value])
-                                      : field.onChange(
-                                          field.value?.filter(
-                                            (value) => value !== permission.value
-                                          )
-                                        )
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal cursor-pointer">
-                                {permission.label}
-                              </FormLabel>
-                            </FormItem>
-                          )
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <FormLabel>Key Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select key type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="private">
+                        Private - For backend server use
+                      </SelectItem>
+                      <SelectItem value="public">
+                        Public - For frontend/client use
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Private keys have full access. Public keys are restricted to specific origins.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -224,42 +203,17 @@ export function NewApiKeyDialog({ open, onOpenChange, onSuccess }: NewApiKeyDial
 
             <FormField
               control={form.control}
-              name="expiresAt"
+              name="description"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Expiration (optional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>No expiration</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormDescription>
-                    Leave empty for a key that never expires.
-                  </FormDescription>
+                <FormItem>
+                  <FormLabel>Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="What will this key be used for?"
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -270,12 +224,12 @@ export function NewApiKeyDialog({ open, onOpenChange, onSuccess }: NewApiKeyDial
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                disabled={isLoading}
+                disabled={createApiKey.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={createApiKey.isPending}>
+                {createApiKey.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Key
               </Button>
             </DialogFooter>
