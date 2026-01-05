@@ -19,6 +19,7 @@ import {
   useAvailablePhoneNumbers,
   usePurchasePhoneNumber,
   useDeletePhoneNumber,
+  useUpdatePhoneNumber,
   type PhoneNumber,
   type AvailablePhoneNumber,
 } from "@/lib/api"
@@ -140,6 +141,7 @@ export default function PhoneNumbersPage() {
   } = useAvailablePhoneNumbers()
   const purchaseMutation = usePurchasePhoneNumber()
   const deleteMutation = useDeletePhoneNumber()
+  const updateMutation = useUpdatePhoneNumber()
 
   const phoneNumbers = useMemo(
     () => phoneNumbersData?.map(transformPhoneNumber) || [],
@@ -162,6 +164,15 @@ export default function PhoneNumbersPage() {
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [phoneNumberToDelete, setPhoneNumberToDelete] = useState<string | null>(null)
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [phoneNumberToEdit, setPhoneNumberToEdit] = useState<{
+    id: string
+    name: string
+    number: string
+  } | null>(null)
+  const [editName, setEditName] = useState("")
 
   // Update filtered data when phone numbers load
   useMemo(() => {
@@ -227,6 +238,38 @@ export default function PhoneNumbersPage() {
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to delete phone number"
+      )
+    }
+  }
+
+  const handleEditClick = (id: string) => {
+    const phoneNumber = phoneNumbers.find((p) => p.id === id)
+    if (phoneNumber) {
+      setPhoneNumberToEdit({
+        id: phoneNumber.id,
+        name: phoneNumber.label,
+        number: phoneNumber.number,
+      })
+      setEditName(phoneNumber.label)
+      setEditDialogOpen(true)
+    }
+  }
+
+  const handleEditConfirm = async () => {
+    if (!phoneNumberToEdit || !editName.trim()) return
+
+    try {
+      await updateMutation.mutateAsync({
+        id: phoneNumberToEdit.id,
+        data: { name: editName.trim() },
+      })
+      toast.success("Phone number updated successfully!")
+      setEditDialogOpen(false)
+      setPhoneNumberToEdit(null)
+      setEditName("")
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update phone number"
       )
     }
   }
@@ -318,6 +361,7 @@ export default function PhoneNumbersPage() {
               <PhoneNumberCard
                 key={phoneNumber.id}
                 phoneNumber={phoneNumber}
+                onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
               />
             ))}
@@ -455,6 +499,53 @@ export default function PhoneNumbersPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Phone Number Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Phone Number</DialogTitle>
+            <DialogDescription>
+              Update the name for{" "}
+              <span className="font-mono font-medium">
+                {phoneNumberToEdit?.number}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                placeholder="e.g., Sales Line, Support"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                A friendly name to identify this phone number.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={updateMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditConfirm}
+              disabled={!editName.trim() || updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
