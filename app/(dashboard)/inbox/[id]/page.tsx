@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useCall, type CallDetail } from '@/lib/api';
-import type { MockCall } from '@/lib/mock-data/calls';
+import type { CallDisplayData } from '@/components/calls/types';
 import { CallTranscriptView } from '@/components/calls/call-transcript';
 import {
   CallSidebar,
@@ -29,8 +29,8 @@ import { CallsListSidebar, hasActiveFilters } from '@/components/calls/calls-lis
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
 
-// Transform API CallDetail to MockCall format for UI components
-function transformCallDetailToMockCall(call: CallDetail): MockCall {
+// Transform API CallDetail to CallDisplayData format for UI components
+function transformCallDetailToDisplayData(call: CallDetail): CallDisplayData {
   const customerName = call.customer
     ? [call.customer.first_name, call.customer.last_name].filter(Boolean).join(' ') || 'Unknown'
     : 'Unknown';
@@ -48,7 +48,7 @@ function transformCallDetailToMockCall(call: CallDetail): MockCall {
     score: '0',
     date: call.createdAt,
     category: 'support',
-    source: call.agentPhone?.provider as MockCall['source'] || 'Unknown',
+    source: call.agentPhone?.provider as CallDisplayData['source'] || 'Unknown',
     origin: 'real',
     assistantName: call.agentSettings?.name || 'AI Assistant',
     agentName: call.agentSettings?.name || 'AI Assistant',
@@ -100,10 +100,10 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   // Fetch call data from API
   const { data: apiCallData, isLoading, error } = useCall(callId);
 
-  // Transform API data to MockCall format for UI components
+  // Transform API data to CallDisplayData format for UI components
   const callData = useMemo(() => {
     if (!apiCallData) return null;
-    return transformCallDetailToMockCall(apiCallData);
+    return transformCallDetailToDisplayData(apiCallData);
   }, [apiCallData]);
 
   // Calculate duration from transcript segments if not in call data

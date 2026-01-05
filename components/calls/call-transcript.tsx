@@ -8,10 +8,10 @@ import { TranscriptHeader } from './transcript-header';
 import { TranscriptContent } from './transcript-content';
 import { TranscriptSkeleton } from './transcript-skeleton';
 import type { TranscriptMessage, TranscriptEvent } from './transcript-types';
-import type { MockCall } from '@/lib/mock-data/calls';
+import type { CallDisplayData } from './types';
 
 interface CallTranscriptViewProps {
-  callData?: MockCall | null;
+  callData?: CallDisplayData | null;
   isLoading?: boolean;
   showHeader?: boolean;
   showFooter?: boolean;
