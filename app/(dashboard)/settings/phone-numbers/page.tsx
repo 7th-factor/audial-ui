@@ -21,6 +21,7 @@ import {
   usePhoneNumbers,
   useAvailablePhoneNumbers,
   usePurchasePhoneNumber,
+  useDeletePhoneNumber,
   type PhoneNumber,
   type AvailablePhoneNumber,
 } from "@/lib/api"
@@ -149,6 +150,7 @@ export default function PhoneNumbersPage() {
     isLoading: isLoadingAvailable,
   } = useAvailablePhoneNumbers()
   const purchaseMutation = usePurchasePhoneNumber()
+  const deleteMutation = useDeletePhoneNumber()
 
   const phoneNumbers = useMemo(
     () => phoneNumbersData?.map(transformPhoneNumber) || [],
@@ -167,6 +169,10 @@ export default function PhoneNumbersPage() {
   const [selectedNumber, setSelectedNumber] =
     useState<AvailablePhoneNumber | null>(null)
   const [purchaseName, setPurchaseName] = useState("")
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [phoneNumberToDelete, setPhoneNumberToDelete] = useState<string | null>(null)
 
   // Update filtered data when phone numbers load
   useMemo(() => {
@@ -212,6 +218,26 @@ export default function PhoneNumbersPage() {
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to purchase phone number"
+      )
+    }
+  }
+
+  const handleDeleteClick = (id: string) => {
+    setPhoneNumberToDelete(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!phoneNumberToDelete) return
+
+    try {
+      await deleteMutation.mutateAsync(phoneNumberToDelete)
+      toast.success("Phone number deleted successfully!")
+      setDeleteDialogOpen(false)
+      setPhoneNumberToDelete(null)
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete phone number"
       )
     }
   }
@@ -311,6 +337,7 @@ export default function PhoneNumbersPage() {
                 onToggle={(id, isActive) => {
                   console.log("Toggle phone number", id, isActive)
                 }}
+                onDelete={handleDeleteClick}
               />
             ))}
           </div>
@@ -415,6 +442,38 @@ export default function PhoneNumbersPage() {
                 <IconShoppingCart className="mr-2 h-4 w-4" />
               )}
               Confirm Purchase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Phone Number</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this phone number? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
