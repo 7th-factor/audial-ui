@@ -174,18 +174,16 @@ export default function PhoneNumbersPage() {
   } | null>(null)
   const [editName, setEditName] = useState("")
 
-  // Update filtered data when phone numbers load
-  useMemo(() => {
-    if (phoneNumbers.length > 0 && filteredData.length === 0) {
-      setFilteredData(phoneNumbers)
-    }
-  }, [phoneNumbers, filteredData.length])
+  // Use filtered data if available, otherwise fall back to all phone numbers
+  const displayData = filteredData.length > 0 || phoneNumbers.length === 0
+    ? filteredData
+    : phoneNumbers
 
   // Paginated data
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize
-    return filteredData.slice(start, start + pageSize)
-  }, [filteredData, currentPage, pageSize])
+    return displayData.slice(start, start + pageSize)
+  }, [displayData, currentPage, pageSize])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -367,7 +365,7 @@ export default function PhoneNumbersPage() {
             ))}
           </div>
 
-          {filteredData.length === 0 && (
+          {displayData.length === 0 && (
             <div className="text-center py-12 text-muted-foreground text-sm">
               No phone numbers found.{" "}
               <button
@@ -380,9 +378,9 @@ export default function PhoneNumbersPage() {
           )}
 
           {/* Pagination */}
-          {filteredData.length > 0 && (
+          {displayData.length > 0 && (
             <CardGridPagination
-              totalItems={filteredData.length}
+              totalItems={displayData.length}
               pageSize={pageSize}
               currentPage={currentPage}
               onPageChange={handlePageChange}
