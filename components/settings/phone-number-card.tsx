@@ -1,6 +1,5 @@
 'use client';
 
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,19 +8,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { IconDotsVertical, IconPencil, IconTrash } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
 
 export interface PhoneNumber {
   id: string;
   number: string;
   countryCode: string;
   label: string;
-  isActive: boolean;
 }
 
 interface PhoneNumberCardProps {
   phoneNumber: PhoneNumber;
-  onToggle: (id: string, isActive: boolean) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
@@ -44,7 +40,6 @@ const countryFlags: Record<string, string> = {
 
 export function PhoneNumberCard({
   phoneNumber,
-  onToggle,
   onEdit,
   onDelete,
 }: PhoneNumberCardProps) {
@@ -87,18 +82,9 @@ export function PhoneNumberCard({
       {/* Phone Number */}
       <div className="text-base font-medium text-foreground mb-4">{phoneNumber.number}</div>
 
-      {/* Label and Toggle */}
-      <div className="flex items-center justify-between mt-auto">
+      {/* Label */}
+      <div className="mt-auto">
         <span className="text-sm text-muted-foreground">{phoneNumber.label}</span>
-        <Switch
-          checked={phoneNumber.isActive}
-          onCheckedChange={(checked) => onToggle(phoneNumber.id, checked)}
-          className={cn(
-            phoneNumber.isActive
-              ? 'data-[state=checked]:bg-primary'
-              : ''
-          )}
-        />
       </div>
     </div>
   );

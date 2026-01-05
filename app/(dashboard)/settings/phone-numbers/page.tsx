@@ -11,9 +11,6 @@ import {
 import { SearchAndFilter } from "@/components/shared/search-and-filter"
 import { CardGridPagination } from "@/components/shared/card-grid-pagination"
 import {
-  IconPlus,
-  IconCircleCheck,
-  IconCircleX,
   IconPhone,
   IconShoppingCart,
 } from "@tabler/icons-react"
@@ -37,12 +34,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
-// Status options for faceted filter
-const statusOptions = [
-  { value: "active", label: "Active", icon: IconCircleCheck },
-  { value: "inactive", label: "Inactive", icon: IconCircleX },
-]
-
 // Provider options for faceted filter
 const providerOptions = [
   { value: "twilio", label: "Twilio" },
@@ -53,7 +44,7 @@ const providerOptions = [
 // Transform API phone number to card format
 function transformPhoneNumber(
   phoneNumber: PhoneNumber
-): PhoneNumberCardType & { status: string; provider: string } {
+): PhoneNumberCardType & { provider: string } {
   // Extract country code from the phone number (simple heuristic)
   const countryCode = phoneNumber.number.startsWith("+1")
     ? "US"
@@ -72,8 +63,6 @@ function transformPhoneNumber(
     number: phoneNumber.number,
     countryCode,
     label: phoneNumber.name,
-    isActive: true, // API doesn't have active status, assume active
-    status: "active",
     provider: phoneNumber.provider,
   }
 }
@@ -158,7 +147,7 @@ export default function PhoneNumbersPage() {
   )
 
   const [filteredData, setFilteredData] = useState<
-    (PhoneNumberCardType & { status: string; provider: string })[]
+    (PhoneNumberCardType & { provider: string })[]
   >([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -315,11 +304,6 @@ export default function PhoneNumbersPage() {
             searchPlaceholder="Search phone numbers..."
             filters={[
               {
-                column: "status",
-                title: "Status",
-                options: statusOptions,
-              },
-              {
                 column: "provider",
                 title: "Provider",
                 options: providerOptions,
@@ -334,9 +318,6 @@ export default function PhoneNumbersPage() {
               <PhoneNumberCard
                 key={phoneNumber.id}
                 phoneNumber={phoneNumber}
-                onToggle={(id, isActive) => {
-                  console.log("Toggle phone number", id, isActive)
-                }}
                 onDelete={handleDeleteClick}
               />
             ))}
