@@ -18,9 +18,9 @@ import {
 } from "firebase/auth";
 import { auth } from "./config";
 import { useRouter } from "next/navigation";
-import { tokenManager } from "@/lib/auth/token-manager";
+import { tokenManager, type TokenData } from "@/lib/auth/token-manager";
 import { tokenCache } from "@/lib/auth/token-cache";
-import { exchangeToken as doExchange } from "@/lib/auth/exchange-token";
+import { exchangeToken as doExchange, refreshAccessToken } from "@/lib/auth/exchange-token";
 
 type AuthContextType = {
   user: User | null;
@@ -81,8 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { current: null };
   })();
 
-  // Use Firebase ID token directly for API authentication
-  // The API validates Firebase tokens directly via the Authorization header
+  // Exchange Firebase ID token for backend access/refresh tokens
   const exchangeToken = useCallback(
     async (firebaseUser: User): Promise<string | null> => {
       try {
@@ -91,14 +90,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (lastExchangeKeyRef.current === key) {
           return tokenManager.getToken() ?? null;
         }
-        console.log("[AuthProvider] Using Firebase ID token for API authentication...");
-        setCustomToken(idToken);
-        tokenManager.setToken(idToken);
+        console.log("[AuthProvider] Exchanging Firebase token for backend tokens...");
+
+        // Exchange Firebase token for backend tokens (accessToken + refreshToken)
+        const tokenData = await doExchange(idToken);
+
+        // Store both tokens
+        tokenManager.setTokens(tokenData);
+        setCustomToken(tokenData.accessToken);
         lastExchangeKeyRef.current = key;
-        console.log("[AuthProvider] ✅ Firebase token set successfully");
-        return idToken;
+
+        // Register refresh callback using the new refresh token
+        tokenManager.setRefreshCallback(async (): Promise<TokenData | null> => {
+          const currentRefreshToken = tokenManager.getRefreshToken();
+          if (!currentRefreshToken) {
+            console.warn("[AuthProvider] No refresh token available");
+            return null;
+          }
+          try {
+            const newTokenData = await refreshAccessToken(currentRefreshToken);
+            return newTokenData;
+          } catch (error) {
+            console.error("[AuthProvider] Refresh token failed:", error);
+            return null;
+          }
+        });
+
+        console.log("[AuthProvider] ✅ Token exchange successful");
+        return tokenData.accessToken;
       } catch (error) {
-        console.error("[AuthProvider] ❌ Failed to get Firebase token:", error);
+        console.error("[AuthProvider] ❌ Failed to exchange token:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("[AuthProvider] Error details:", {
           message: errorMessage,
@@ -179,7 +200,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(firebaseUser);
             setCustomToken(cachedToken);
             setIsEmailVerified(firebaseUser.emailVerified);
+            tokenManager.setToken(cachedToken); // Ensure tokenManager has the cached token
             setLoading(false);
+
+            // Register refresh callback for cached token path
+            // This ensures token refresh works even when using cached tokens
+            tokenManager.setRefreshCallback(async (): Promise<TokenData | null> => {
+              const currentRefreshToken = tokenManager.getRefreshToken();
+              if (!currentRefreshToken) {
+                console.warn("[AuthProvider] No refresh token available");
+                return null;
+              }
+              try {
+                const newTokenData = await refreshAccessToken(currentRefreshToken);
+                return newTokenData;
+              } catch (error) {
+                console.error("[AuthProvider] Refresh token failed:", error);
+                return null;
+              }
+            });
 
             // Background: Verify token still valid and refresh if needed
             // This keeps token fresh without blocking UI

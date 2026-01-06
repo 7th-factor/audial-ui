@@ -26,10 +26,17 @@ interface JWTPayload {
   exp: number; // expiration (seconds)
 }
 
-type RefreshCallback = () => Promise<string | null>;
+export interface TokenData {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+type RefreshCallback = () => Promise<TokenData | null>;
 
 class TokenManager {
   private jwtToken: string | null = null;
+  private refreshToken: string | null = null;
   private listeners: ((token: string | null) => void)[] = [];
   private refreshTimeout: NodeJS.Timeout | null = null;
   private refreshCallback: RefreshCallback | null = null;
@@ -41,8 +48,10 @@ class TokenManager {
   initialize() {
     if (typeof window !== "undefined") {
       const token = this.getTokenFromCookie();
+      const refreshToken = this.getRefreshTokenFromCookie();
       if (token) {
         this.jwtToken = token;
+        this.refreshToken = refreshToken;
         this.scheduleRefresh(token);
       }
     }
@@ -75,6 +84,35 @@ class TokenManager {
 
     // Notify all listeners
     this.listeners.forEach((listener) => listener(token));
+  }
+
+  /**
+   * Set both access and refresh tokens
+   *
+   * Stores refresh token in cookie and schedules automatic refresh.
+   */
+  setTokens(tokenData: TokenData) {
+    this.jwtToken = tokenData.accessToken;
+    this.refreshToken = tokenData.refreshToken;
+
+    // Update cookies
+    if (typeof window !== "undefined") {
+      document.cookie = `auth-token=${tokenData.accessToken}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `refresh-token=${tokenData.refreshToken}; path=/; max-age=2592000; SameSite=Lax`; // 30 days
+    }
+
+    // Schedule refresh for new token
+    this.scheduleRefresh(tokenData.accessToken);
+
+    // Notify all listeners
+    this.listeners.forEach((listener) => listener(tokenData.accessToken));
+  }
+
+  /**
+   * Get current refresh token
+   */
+  getRefreshToken(): string | null {
+    return this.refreshToken;
   }
 
   /**
@@ -116,7 +154,19 @@ class TokenManager {
    * Clear token and notify listeners
    */
   clearToken() {
-    this.setToken(null);
+    this.jwtToken = null;
+    this.refreshToken = null;
+
+    // Clear cookies
+    if (typeof window !== "undefined") {
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      document.cookie = "refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+    }
+
+    this.cancelRefresh();
+
+    // Notify all listeners
+    this.listeners.forEach((listener) => listener(null));
   }
 
   /**
@@ -250,9 +300,9 @@ class TokenManager {
   /**
    * Perform token refresh
    *
-   * Calls the registered refresh callback to get a new token.
-   * If successful, updates the token and reschedules refresh.
-   * If failed, clears the token (user will be logged out).
+   * Calls the registered refresh callback to get new tokens.
+   * If successful, updates tokens and reschedules refresh.
+   * If failed, clears the tokens (user will be logged out).
    */
   private async performRefresh() {
     if (this.isRefreshing) {
@@ -269,10 +319,10 @@ class TokenManager {
       this.isRefreshing = true;
       console.log("[TokenManager] Refreshing token...");
 
-      const newToken = await this.refreshCallback();
+      const tokenData = await this.refreshCallback();
 
-      if (newToken) {
-        this.setToken(newToken);
+      if (tokenData) {
+        this.setTokens(tokenData);
         console.log("[TokenManager] Token refreshed successfully");
       } else {
         console.warn("[TokenManager] Refresh failed - no token returned");
@@ -296,6 +346,22 @@ class TokenManager {
     for (const cookie of cookies) {
       const [key, value] = cookie.trim().split("=");
       if (key === "auth-token") {
+        return value || null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get refresh token from cookie
+   */
+  private getRefreshTokenFromCookie(): string | null {
+    if (typeof window === "undefined") return null;
+
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [key, value] = cookie.trim().split("=");
+      if (key === "refresh-token") {
         return value || null;
       }
     }
