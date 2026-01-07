@@ -28,10 +28,13 @@ import {
   useAgent,
   useCreateAgent,
   useUpdateAgent,
+  usePhoneNumbers,
+  useUpdatePhoneNumber,
   type CreateAgentInput,
   type UpdateAgentInput,
   type Routing,
   type Tool,
+  type PhoneNumber,
 } from "@/lib/api"
 import { RoutingsSection } from "@/components/agent/routings/routings-section"
 import { ToolsSection } from "@/components/agent/tools/tools-section"
@@ -116,6 +119,19 @@ export default function AgentPage() {
   })()
   const createAgentMutation = useCreateAgent()
   const updateAgentMutation = useUpdateAgent()
+
+  // Phone numbers
+  const { data: phoneNumbersResponse } = usePhoneNumbers()
+  const updatePhoneNumberMutation = useUpdatePhoneNumber()
+
+  // Normalize phone numbers to always be an array
+  const allPhoneNumbers = (() => {
+    if (!phoneNumbersResponse) return []
+    if (Array.isArray(phoneNumbersResponse)) return phoneNumbersResponse
+    const maybeData = (phoneNumbersResponse as unknown as { data?: PhoneNumber[] })?.data
+    if (Array.isArray(maybeData)) return maybeData
+    return []
+  })()
 
   // Selected agent ID
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
@@ -697,32 +713,72 @@ export default function AgentPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Phone Numbers</CardTitle>
-                <CardDescription>Manage phone numbers for your agent</CardDescription>
+                <CardDescription>Phone numbers assigned to this agent</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <IconPhone className="size-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">+1 (555) 123-4567</p>
-                        <p className="text-xs text-muted-foreground">Primary • United States</p>
+                {(() => {
+                  // Filter phone numbers assigned to current agent
+                  const agentPhoneNumbers = allPhoneNumbers.filter(
+                    (phone) => phone.agent?.id === selectedAgentId
+                  )
+
+                  if (agentPhoneNumbers.length === 0) {
+                    return (
+                      <div className="rounded-lg border border-dashed p-6 text-center">
+                        <IconPhone className="mx-auto size-8 text-muted-foreground" />
+                        <h3 className="mt-2 text-sm font-semibold">No phone numbers assigned</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Assign a phone number to this agent from the Phone Numbers settings
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="mt-4 bg-transparent"
+                          onClick={() => window.location.href = "/settings/phone-numbers"}
+                        >
+                          Manage Phone Numbers
+                        </Button>
+                      </div>
+                    )
+                  }
+
+                  return agentPhoneNumbers.map((phone) => (
+                    <div key={phone.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <IconPhone className="size-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{phone.number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {phone.name || "Unnamed"} • {phone.provider}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await updatePhoneNumberMutation.mutateAsync({
+                                id: phone.id,
+                                data: { assistantId: undefined },
+                              })
+                              toast.success("Phone number unassigned from agent")
+                            } catch {
+                              toast.error("Failed to unassign phone number")
+                            }
+                          }}
+                          disabled={updatePhoneNumberMutation.isPending}
+                        >
+                          {updatePhoneNumberMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Unassign"
+                          )}
+                        </Button>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <IconPhone className="mx-auto size-8 text-muted-foreground" />
-                  <h3 className="mt-2 text-sm font-semibold">No additional numbers</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Purchase a phone number to get started</p>
-                  <Button variant="outline" className="mt-4 bg-transparent">
-                    Purchase Number
-                  </Button>
-                </div>
+                  ))
+                })()}
               </CardContent>
             </Card>
 
@@ -1212,6 +1268,7 @@ export default function AgentPage() {
               </div>
             </div>
           </TabsContent>
+
         </Tabs>
       </div>
       )}
