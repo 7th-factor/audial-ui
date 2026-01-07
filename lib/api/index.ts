@@ -28,3 +28,9 @@ export * from "./services";
 
 // Hooks
 export * from "./hooks";
+
+// Audial API Wrapper
+export { audialApi } from "./audial-api";
+
+// Pagination Adapter
+export * from "./pagination-adapter";
