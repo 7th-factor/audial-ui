@@ -17,6 +17,17 @@ import {
 import { IconRobot, IconUser } from "@tabler/icons-react"
 import type { Routing, AIRouting, HumanRouting, Agent } from "@/lib/api/types"
 
+/**
+ * Normalize phone number to E.164 format
+ * Strips all non-digit characters except leading +
+ * Examples: "+1 (555) 123-4567" -> "+15551234567"
+ */
+function normalizePhoneToE164(phone: string): string {
+  const hasPlus = phone.startsWith('+')
+  const digits = phone.replace(/\D/g, '')
+  return hasPlus ? `+${digits}` : digits
+}
+
 interface RoutingFormProps {
   routing?: Routing
   agents: Agent[]
@@ -61,19 +72,23 @@ export function RoutingForm({
       onSubmit(aiRouting)
     } else {
       if (!phone.trim()) return
+      const normalizedPhone = normalizePhoneToE164(phone)
       const humanRouting: HumanRouting = {
         type: "human",
         triggerCondition: triggerCondition.trim(),
         destination: "external",
-        phone: phone.trim(),
+        phone: normalizedPhone,
       }
       onSubmit(humanRouting)
     }
   }
 
+  const normalizedPhone = routingType === "human" ? normalizePhoneToE164(phone) : ""
+  const isValidPhone = normalizedPhone.length >= 10
+
   const isValid =
     triggerCondition.trim() &&
-    ((routingType === "ai" && agentId) || (routingType === "human" && phone.trim()))
+    ((routingType === "ai" && agentId) || (routingType === "human" && phone.trim() && isValidPhone))
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -185,7 +200,7 @@ export function RoutingForm({
               required
             />
             <p className="text-xs text-muted-foreground">
-              Enter the phone number to transfer the call to, including country code.
+              Enter the phone number including country code (e.g., +1 555 123 4567).
             </p>
           </div>
         )}

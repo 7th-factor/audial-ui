@@ -15,7 +15,6 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconApps,
-  IconSwitchHorizontal,
 } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 
@@ -35,7 +34,7 @@ import {
   type Tool,
   type PhoneNumber,
 } from "@/lib/api"
-import { RoutingsSection } from "@/components/agent/routings/routings-section"
+import { CallForwardingCard } from "@/components/agent/call-forwarding-card"
 import { ToolsSection } from "@/components/agent/tools/tools-section"
 import { CreateOutboundCallDialog } from "@/components/agent/create-outbound-call-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -612,10 +611,6 @@ export default function AgentPage() {
               <IconRuler className="size-4" />
               Rules
             </TabsTrigger>
-            <TabsTrigger value="routings">
-              <IconSwitchHorizontal className="size-4" />
-              Routings
-            </TabsTrigger>
             <TabsTrigger value="tools">
               <IconTool className="size-4" />
               Tools
@@ -752,6 +747,20 @@ export default function AgentPage() {
                 )}
               </CardContent>
             </Card>
+
+            <CallForwardingCard
+              enabled={routings.length > 0}
+              routing={routings[0] || null}
+              agents={agents || []}
+              currentAgentId={selectedAgentId || ""}
+              onEnabledChange={(enabled) => {
+                if (!enabled) setRoutings([])
+              }}
+              onRoutingChange={(routing) => {
+                setRoutings(routing ? [routing] : [])
+              }}
+              disabled={isSaving}
+            />
 
             <Card>
               <CardHeader>
@@ -1162,16 +1171,6 @@ export default function AgentPage() {
                 </CardContent>
               )}
             </Card>
-          </TabsContent>
-
-          <TabsContent value="routings" className="mt-6 space-y-4">
-            <RoutingsSection
-              routings={routings}
-              agents={agents || []}
-              currentAgentId={selectedAgentId || ""}
-              onRoutingsChange={setRoutings}
-              disabled={isSaving}
-            />
           </TabsContent>
 
           <TabsContent value="tools" className="mt-6 space-y-4">
