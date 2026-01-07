@@ -29,7 +29,6 @@ import {
   useCreateAgent,
   useUpdateAgent,
   usePhoneNumbers,
-  useUpdatePhoneNumber,
   type CreateAgentInput,
   type UpdateAgentInput,
   type Routing,
@@ -122,7 +121,6 @@ export default function AgentPage() {
 
   // Phone numbers
   const { data: phoneNumbersResponse } = usePhoneNumbers()
-  const updatePhoneNumberMutation = useUpdatePhoneNumber()
 
   // Normalize phone numbers to always be an array
   const allPhoneNumbers = (() => {
@@ -713,35 +711,26 @@ export default function AgentPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Phone Numbers</CardTitle>
-                <CardDescription>Phone numbers assigned to this agent</CardDescription>
+                <CardDescription>Your purchased phone numbers</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {(() => {
-                  // Filter phone numbers assigned to current agent
-                  const agentPhoneNumbers = allPhoneNumbers.filter(
-                    (phone) => phone.agent?.id === selectedAgentId
-                  )
-
-                  if (agentPhoneNumbers.length === 0) {
-                    return (
-                      <div className="rounded-lg border border-dashed p-6 text-center">
-                        <IconPhone className="mx-auto size-8 text-muted-foreground" />
-                        <h3 className="mt-2 text-sm font-semibold">No phone numbers assigned</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Assign a phone number to this agent from the Phone Numbers settings
-                        </p>
-                        <Button
-                          variant="outline"
-                          className="mt-4 bg-transparent"
-                          onClick={() => window.location.href = "/settings/phone-numbers"}
-                        >
-                          Manage Phone Numbers
-                        </Button>
-                      </div>
-                    )
-                  }
-
-                  return agentPhoneNumbers.map((phone) => (
+                {allPhoneNumbers.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center">
+                    <IconPhone className="mx-auto size-8 text-muted-foreground" />
+                    <h3 className="mt-2 text-sm font-semibold">No phone numbers</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Purchase a phone number to get started
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 bg-transparent"
+                      onClick={() => window.location.href = "/settings/phone-numbers"}
+                    >
+                      Manage Phone Numbers
+                    </Button>
+                  </div>
+                ) : (
+                  allPhoneNumbers.map((phone) => (
                     <div key={phone.id} className="rounded-lg border p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -756,29 +745,14 @@ export default function AgentPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={async () => {
-                            try {
-                              await updatePhoneNumberMutation.mutateAsync({
-                                id: phone.id,
-                                data: { assistantId: undefined },
-                              })
-                              toast.success("Phone number unassigned from agent")
-                            } catch {
-                              toast.error("Failed to unassign phone number")
-                            }
-                          }}
-                          disabled={updatePhoneNumberMutation.isPending}
+                          onClick={() => window.location.href = "/settings/phone-numbers"}
                         >
-                          {updatePhoneNumberMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Unassign"
-                          )}
+                          Manage
                         </Button>
                       </div>
                     </div>
                   ))
-                })()}
+                )}
               </CardContent>
             </Card>
 
