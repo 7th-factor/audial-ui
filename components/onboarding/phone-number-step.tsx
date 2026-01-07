@@ -43,9 +43,11 @@ interface PhoneNumberStepProps {
 }
 
 // Format price for display
-function formatPrice(price: number | null): string {
-  if (price === null) return "Free"
-  return `$${price.toFixed(2)}/mo`
+function formatPrice(price: number | string | null | undefined): string {
+  if (price === null || price === undefined) return "Free"
+  const numPrice = typeof price === "string" ? parseFloat(price) : price
+  if (isNaN(numPrice)) return "Free"
+  return `$${numPrice.toFixed(2)}/mo`
 }
 
 export function PhoneNumberStep({
