@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api/api-fetch'
+import { apiClient } from '@/lib/api/client'
 import {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
@@ -15,7 +15,7 @@ const PREFIX = '/api/auth'
  * List private API keys
  */
 export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
-  const res = await apiFetch<Omit<PrivateApiKey, 'type'>[]>(
+  const res = await apiClient.get<Omit<PrivateApiKey, 'type'>[]>(
     `${PREFIX}/list-private-keys`
   )
   return res.map((key) => ({
@@ -28,7 +28,7 @@ export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
  * List public API keys
  */
 export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
-  const res = await apiFetch<Omit<PublicApiKey, 'type'>[]>(
+  const res = await apiClient.get<Omit<PublicApiKey, 'type'>[]>(
     `${PREFIX}/list-public-keys`
   )
   return res.map((key) => ({
@@ -41,7 +41,7 @@ export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
  * Get default public API key (used for widget embed code)
  */
 export async function getDefaultPublicApiKey(): Promise<PublicApiKey> {
-  const res = await apiFetch<Omit<PublicApiKey, 'type'>>(
+  const res = await apiClient.get<Omit<PublicApiKey, 'type'>>(
     `${PREFIX}/get-default-public-key`
   )
   return {
@@ -56,10 +56,7 @@ export async function getDefaultPublicApiKey(): Promise<PublicApiKey> {
 export async function createApiKey(
   data: CreateApiKeyRequest
 ): Promise<CreateApiKeyResponse> {
-  return apiFetch<CreateApiKeyResponse>(`${PREFIX}/create-key`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  return apiClient.post<CreateApiKeyResponse>(`${PREFIX}/create-key`, data)
 }
 
 /**
@@ -68,8 +65,5 @@ export async function createApiKey(
 export async function deleteApiKey(
   data: DeleteApiKeyRequest
 ): Promise<DeleteApiKeyResponse> {
-  return apiFetch<DeleteApiKeyResponse>(`${PREFIX}/delete-key`, {
-    method: 'DELETE',
-    body: JSON.stringify(data),
-  })
+  return apiClient.deleteWithBody<DeleteApiKeyResponse>(`${PREFIX}/delete-key`, data)
 }

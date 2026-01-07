@@ -314,5 +314,3 @@ export default function CallDetailsPage({
     </Suspense>
   );
 }
-
-export const dynamic = 'force-dynamic';

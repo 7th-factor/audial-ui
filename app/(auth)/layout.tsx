@@ -13,6 +13,3 @@ export default function AuthLayout({
     </PublicRouteGuard>
   );
 }
-export const dynamic = "force-dynamic";
-
-
