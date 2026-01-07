@@ -45,9 +45,14 @@ export default function IntegrationsPage() {
 
   // Merge local state with real credential status
   const integrations = useMemo(() => {
+    // Handle different API response formats
+    const credentialsList = Array.isArray(credentials)
+      ? credentials
+      : (credentials as unknown as { data?: typeof credentials })?.data ?? [];
+
     return localIntegrations.map((integration) => {
       // Check if this integration has a real credential
-      const hasCredential = credentials?.some((cred) => {
+      const hasCredential = credentialsList.some((cred) => {
         const mappedId = credentialProviderToIntegrationId[cred.provider];
         return mappedId === integration.id;
       });
