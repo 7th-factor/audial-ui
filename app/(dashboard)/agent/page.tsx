@@ -586,28 +586,7 @@ export default function AgentPage() {
       title="Agent"
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
-      actions={
-        <div className="flex items-center gap-4">
-          {/* Agent Selector */}
-          <Select value={selectedAgentId || ""} onValueChange={setSelectedAgentId}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select agent" />
-            </SelectTrigger>
-            <SelectContent>
-              {agents.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={() => setShowCreateDialog(true)}>
-            <IconPlus className="mr-1 h-4 w-4" />
-            New Agent
-          </Button>
-          <SaveStatusIndicator status={status} lastSaved={lastSaved} />
-        </div>
-      }
+      actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
     >
       {isLoadingAgent ? (
         <div className="flex items-center justify-center py-12">
