@@ -18,7 +18,7 @@ export async function exchangeToken(idToken: string, signal?: AbortSignal): Prom
   const endpoint = '/api/auth/exchange-token';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new DOMException('Request timeout', 'TimeoutError')), 10000);
+  const timeout = setTimeout(() => controller.abort(new DOMException('Request timeout', 'TimeoutError')), 30000);
   try {
     console.log("[exchangeToken] Exchanging Firebase token at:", `${baseURL}${endpoint}`);
     const res = await fetch(`${baseURL}${endpoint}`, {
@@ -76,7 +76,7 @@ export async function refreshAccessToken(refreshToken: string, signal?: AbortSig
   const endpoint = '/api/auth/refresh-token';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new DOMException('Request timeout', 'TimeoutError')), 10000);
+  const timeout = setTimeout(() => controller.abort(new DOMException('Request timeout', 'TimeoutError')), 30000);
   try {
     console.log("[refreshAccessToken] Refreshing token at:", `${baseURL}${endpoint}`);
     const res = await fetch(`${baseURL}${endpoint}`, {
