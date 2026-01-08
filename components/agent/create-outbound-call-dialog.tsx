@@ -66,12 +66,7 @@ export function CreateOutboundCallDialog({
           phoneNumber: targetPhoneNumber.trim(),
         },
         agentId,
-        phoneNumber: {
-          provider: selectedPhone.provider,
-          number: selectedPhone.number,
-          name: selectedPhone.name,
-          twilioAccountSid: selectedPhone.twilioAccountSid,
-        },
+        phoneNumberId: selectedPhone.id,
       })
 
       toast.success("Call initiated successfully")

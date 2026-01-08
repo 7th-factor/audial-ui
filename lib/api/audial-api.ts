@@ -106,14 +106,15 @@ export const audialApi = {
 
     /** Create a new outbound call with agent settings */
     create: (data: CreateCallInput) =>
-      apiClient.post<CallDetail>('/api/v1/call/create', data),
+      apiClient.post<CallDetail>('/api/v1/call', data),
 
     /** Create a new outbound call with agent ID */
     createByAgentId: (data: {
       customer: CreateCallInput['customer'];
       agentId: string;
-      phoneNumber: CreateCallInput['phoneNumber'];
-    }) => apiClient.post<CallDetail>('/api/v1/call/create', data),
+      phoneNumberId?: string;
+      phoneNumber?: CreateCallInput['phoneNumber'];
+    }) => apiClient.post<CallDetail>('/api/v1/call', data),
 
     /** Get WebSocket room by ID (requires public key) */
     getWebSocketRoom: (roomId: string, publicKey: string) =>

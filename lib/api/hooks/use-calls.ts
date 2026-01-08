@@ -57,7 +57,8 @@ export function useCreateCallByAgentId() {
     mutationFn: (data: {
       customer: CreateCallInput["customer"];
       agentId: string;
-      phoneNumber: CreateCallInput["phoneNumber"];
+      phoneNumberId?: string;
+      phoneNumber?: CreateCallInput["phoneNumber"];
     }) => callsService.createByAgentId(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CALLS_KEY });

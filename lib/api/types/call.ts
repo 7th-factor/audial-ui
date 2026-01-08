@@ -115,7 +115,8 @@ export interface CreateCallInput {
     kickoffConversation?: boolean;
   };
   agentId?: string;
-  phoneNumber: {
+  phoneNumberId?: string;
+  phoneNumber?: {
     provider: string;
     number: string;
     name: string;
