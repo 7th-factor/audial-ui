@@ -35,12 +35,15 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
   const { customToken } = useAuth();
 
   // Only fetch workspaces when we have a valid token
-  const { data: workspaces, isLoading, isError } = useWorkspaces();
+  const { data: workspacesResponse, isLoading, isError } = useWorkspaces();
 
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Skip workspace check for onboarding pages
   const isOnboardingPage = pathname.startsWith('/onboarding');
+
+  // Extract workspaces array from paginated response
+  const workspaces = workspacesResponse?.data ?? [];
 
   useEffect(() => {
     // Wait for workspaces to load
@@ -52,7 +55,7 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
       return;
     }
 
-    const workspaceList = workspaces ?? [];
+    const workspaceList = workspaces;
 
     if (workspaceList.length === 0) {
       // No workspaces - redirect to onboarding
@@ -69,7 +72,7 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
     }
 
     setHasInitialized(true);
-  }, [workspaces, isLoading, customToken, router, isOnboardingPage]);
+  }, [workspacesResponse, isLoading, customToken, router, isOnboardingPage]);
 
   // Loading state
   if (isLoading || (!hasInitialized && !isOnboardingPage)) {

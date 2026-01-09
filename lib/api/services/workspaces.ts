@@ -5,13 +5,18 @@
  */
 
 import { apiClient } from "../client";
-import type { Workspace, CreateWorkspaceInput } from "../types/workspace";
+import type {
+  Workspace,
+  CreateWorkspaceInput,
+  ListWorkspacesResponse,
+} from "../types/workspace";
 
 export const workspacesService = {
   /**
    * List all workspaces for the current user
+   * Returns paginated response with data array and pagination metadata
    */
-  list: () => apiClient.get<Workspace[]>("/api/auth/list-workspaces"),
+  list: () => apiClient.get<ListWorkspacesResponse>("/api/auth/list-workspaces"),
 
   /**
    * Create a new workspace
