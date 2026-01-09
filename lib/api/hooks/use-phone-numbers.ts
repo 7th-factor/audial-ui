@@ -93,7 +93,16 @@ export function useAvailablePhoneNumbers() {
     queryKey: [...PHONE_NUMBERS_KEY, "available"],
     queryFn: async () => {
       const response = await phoneNumbersService.listAvailable();
-      return response.data;
+      // Handle both paginated response and direct array
+      if (response && 'data' in response && Array.isArray(response.data)) {
+        return response.data;
+      }
+      // If response is already an array, return it
+      if (Array.isArray(response)) {
+        return response;
+      }
+      // Return empty array to avoid undefined
+      return [];
     },
   });
 }
@@ -106,7 +115,16 @@ export function usePurchasedPhoneNumbers() {
     queryKey: [...PHONE_NUMBERS_KEY, "purchased"],
     queryFn: async () => {
       const response = await phoneNumbersService.listPurchased();
-      return response.data;
+      // Handle both paginated response and direct array
+      if (response && 'data' in response && Array.isArray(response.data)) {
+        return response.data;
+      }
+      // If response is already an array, return it
+      if (Array.isArray(response)) {
+        return response;
+      }
+      // Return empty array to avoid undefined
+      return [];
     },
   });
 }
