@@ -1,88 +1,124 @@
 "use client"
 
 import * as React from "react"
-import { IconUserCheck } from "@tabler/icons-react"
+import Link from "next/link"
+import { IconUserCheck, IconSettings } from "@tabler/icons-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
-import { columns } from "@/components/data-table/columns"
-import { statuses, priorities } from "@/components/data-table/data/data"
 import { BulkActions, useTaskBulkActions } from "@/components/bulk-actions"
-import { NewFollowUpDialog } from "@/components/follow-ups"
-// Kanban view hidden for now - uncomment when ready
-// import { KanbanBoard, ViewToggle, type ViewMode } from "@/components/follow-ups"
-import type { Task } from "@/components/data-table/data/schema"
-
-const tasks: Task[] = [
-  {
-    id: "TASK-8782",
-    title: "You can't compress the program without quantifying the open-source SSD",
-    status: "in progress",
-    label: "documentation",
-    priority: "medium",
-  },
-  {
-    id: "TASK-7878",
-    title: "Try to calculate the EXE feed, maybe it will index the multi-byte pixel",
-    status: "backlog",
-    label: "documentation",
-    priority: "medium",
-  },
-  {
-    id: "TASK-7839",
-    title: "We need to bypass the neural TCP card",
-    status: "todo",
-    label: "bug",
-    priority: "high",
-  },
-  {
-    id: "TASK-5562",
-    title: "The SAS interface is down, bypass the open-source sensor",
-    status: "backlog",
-    label: "feature",
-    priority: "medium",
-  },
-  {
-    id: "TASK-8686",
-    title: "I'll parse the wireless SSL protocol, that should driver the API panel",
-    status: "canceled",
-    label: "feature",
-    priority: "medium",
-  },
-  {
-    id: "TASK-1280",
-    title: "Use the digital TLS panel, then you can transmit the haptic system",
-    status: "done",
-    label: "bug",
-    priority: "high",
-  },
-  {
-    id: "TASK-7262",
-    title: "The UTF8 application is down, parse the neural bandwidth",
-    status: "done",
-    label: "feature",
-    priority: "high",
-  },
-  {
-    id: "TASK-1138",
-    title: "Generating the driver won't do anything, we need to quantify the 1080p SMTP",
-    status: "in progress",
-    label: "feature",
-    priority: "medium",
-  },
-]
+import {
+  NewFollowUpDialog,
+  ViewFollowUpDialog,
+  getFollowUpColumns,
+  followUpStatuses,
+  followUpPriorities,
+  type FollowUpUIModel,
+  getDisplayStatus,
+} from "@/components/follow-ups"
+import {
+  useFollowUps,
+  useUpdateFollowUp,
+  useDeleteFollowUp,
+} from "@/lib/features/follow-ups"
+import { useCustomers } from "@/lib/api/hooks/use-customers"
+import type { FollowUp } from "@/lib/api/types/follow-up"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function FollowUpsPage() {
-  const [selectedRows, setSelectedRows] = React.useState<Task[]>([])
+  const [selectedRows, setSelectedRows] = React.useState<FollowUpUIModel[]>([])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
+  const [showViewDialog, setShowViewDialog] = React.useState(false)
+  const [selectedFollowUp, setSelectedFollowUp] =
+    React.useState<FollowUpUIModel | null>(null)
 
-  const handleBulkAction = React.useCallback((action: string, rows: Task[]) => {
-    console.log(`Bulk action: ${action}`, rows)
-    setSelectedRows([])
+  // Fetch data from API
+  const { data: followUpsResponse, isLoading: followUpsLoading } = useFollowUps()
+  const { data: customers } = useCustomers()
+  const updateFollowUp = useUpdateFollowUp()
+  const deleteFollowUp = useDeleteFollowUp()
+
+  // Create a map of customer IDs to names for quick lookup
+  const customerMap = React.useMemo(() => {
+    if (!customers) return new Map<string, string>()
+    return new Map(
+      customers.map((c) => [
+        c.id,
+        [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+          c.phoneNumber ||
+          "Unknown",
+      ])
+    )
+  }, [customers])
+
+  // Transform API data to UI model with computed status and customer names
+  const followUps: FollowUpUIModel[] = React.useMemo(() => {
+    if (!followUpsResponse?.data) return []
+    return followUpsResponse.data.map((fu: FollowUp) => ({
+      ...fu,
+      status: getDisplayStatus(fu.status, fu.dueAt),
+      customerName: customerMap.get(fu.customerId),
+    }))
+  }, [followUpsResponse, customerMap])
+
+  const handleView = React.useCallback((followUp: FollowUpUIModel) => {
+    setSelectedFollowUp(followUp)
+    setShowViewDialog(true)
   }, [])
 
-  const bulkActions = useTaskBulkActions(selectedRows, handleBulkAction)
+  const handleMarkDone = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      updateFollowUp.mutate({
+        id: followUp.id,
+        data: { status: "done" },
+      })
+    },
+    [updateFollowUp]
+  )
+
+  const handleReopen = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      updateFollowUp.mutate({
+        id: followUp.id,
+        data: { status: "open" },
+      })
+    },
+    [updateFollowUp]
+  )
+
+  const handleDelete = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      deleteFollowUp.mutate(followUp.id)
+    },
+    [deleteFollowUp]
+  )
+
+  const handleBulkAction = React.useCallback(
+    (action: string, rows: FollowUpUIModel[]) => {
+      if (action === "delete") {
+        rows.forEach((row) => deleteFollowUp.mutate(row.id))
+      }
+      setSelectedRows([])
+    },
+    [deleteFollowUp]
+  )
+
+  const bulkActions = useTaskBulkActions(
+    selectedRows as unknown[],
+    handleBulkAction as (action: string, rows: unknown[]) => void
+  )
+
+  const columns = React.useMemo(
+    () =>
+      getFollowUpColumns({
+        onView: handleView,
+        onMarkDone: handleMarkDone,
+        onReopen: handleReopen,
+        onDelete: handleDelete,
+      }),
+    [handleView, handleMarkDone, handleReopen, handleDelete]
+  )
 
   const headerActions = (
     <div className="flex items-center gap-3">
@@ -91,41 +127,72 @@ export default function FollowUpsPage() {
         actions={bulkActions}
         onClearSelection={() => setSelectedRows([])}
       />
-      {/* Kanban view toggle hidden for now
-      <ViewToggle view={view} onViewChange={setView} />
-      */}
-      <Button onClick={() => setShowNewDialog(true)}>Add Follow Up</Button>
+      <Button variant="outline" asChild>
+        <Link href="/settings/follow-up-rules">
+          <IconSettings className="mr-2 h-4 w-4" />
+          Rules
+        </Link>
+      </Button>
+      <Button onClick={() => setShowNewDialog(true)}>+ Create Follow up</Button>
     </div>
   )
 
   const facetedFilters = React.useMemo(
     () => [
-      { columnId: "status", title: "Status", options: statuses },
-      { columnId: "priority", title: "Priority", options: priorities },
+      {
+        columnId: "status",
+        title: "Status",
+        options: followUpStatuses.map((s) => ({ value: s.value, label: s.label })),
+      },
+      {
+        columnId: "priority",
+        title: "Priority",
+        options: followUpPriorities.map((p) => ({
+          value: p.value,
+          label: p.label,
+        })),
+      },
     ],
-    [],
+    []
   )
+
+  if (followUpsLoading) {
+    return (
+      <PageLayout
+        title="Follow Ups"
+        description="Manage Follow ups and Escalations"
+        icon={IconUserCheck}
+        actions={headerActions}
+      >
+        <div className="px-4 lg:px-6 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </PageLayout>
+    )
+  }
 
   return (
     <>
       <PageLayout
         title="Follow Ups"
-        description="Track and manage your follow-up tasks."
+        description="Manage Follow ups and Escalations"
         icon={IconUserCheck}
         actions={headerActions}
       >
         <div className="px-4 lg:px-6">
           <DataTable
             columns={columns}
-            data={tasks}
-            onSelectionChange={(rows) => setSelectedRows(rows as Task[])}
-            searchColumnId="title"
-            searchPlaceholder="Filter follow ups..."
+            data={followUps}
+            onSelectionChange={(rows) => setSelectedRows(rows as FollowUpUIModel[])}
+            searchColumnId="customerName"
+            searchPlaceholder="Filter tasks..."
             facetedFilters={facetedFilters}
             emptyState={{
               icon: IconUserCheck,
               title: "All caught up!",
-              description: "You have no pending follow-ups. Create one to stay on top of your tasks.",
+              description:
+                "You have no pending follow-ups. Create one to stay on top of your tasks.",
               primaryAction: {
                 label: "Create follow-up",
                 onClick: () => setShowNewDialog(true),
@@ -138,6 +205,12 @@ export default function FollowUpsPage() {
       <NewFollowUpDialog
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
+      />
+
+      <ViewFollowUpDialog
+        open={showViewDialog}
+        onOpenChange={setShowViewDialog}
+        followUp={selectedFollowUp}
       />
     </>
   )

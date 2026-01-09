@@ -1,48 +1,42 @@
 "use client"
 
 import * as React from "react"
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   IconRobot,
   IconSettings,
   IconMicrophone,
   IconRuler,
-  IconBook,
   IconTool,
-  IconChartBar,
   IconPhone,
   IconUpload,
   IconPlus,
   IconX,
-  IconTarget,
   IconChevronDown,
   IconChevronUp,
   IconApps,
-  IconCopy,
 } from "@tabler/icons-react"
+import { Loader2 } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SaveStatusIndicator } from "@/components/save-status-indicator"
 import { useAutosave } from "@/lib/hooks/use-autosave"
-
-interface AgentConfig {
-  temperature: number
-  maxTokens: number
-  speed: number
-  stability: number
-  selectedSkills: string[]
-  conversationStages: {
-    greeting: string
-    informationGathering: string
-    problemSolving: string
-    closing: string
-  }
-  selectedTemplate: string
-  controlMode: "simple" | "flow"
-  shouldDo: string[]
-  shouldNotDo: string[]
-}
+import {
+  useAgents,
+  useAgent,
+  useCreateAgent,
+  useUpdateAgent,
+  usePhoneNumbers,
+  type CreateAgentInput,
+  type UpdateAgentInput,
+  type Routing,
+  type Tool,
+} from "@/lib/api"
+import { CallForwardingCard } from "@/components/agent/call-forwarding-card"
+import { ToolsSection } from "@/components/agent/tools/tools-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -53,85 +47,699 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { NamedAvatar } from "@/components/named-avatar"
-import { Checkbox } from "@/components/ui/checkbox"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ColorInput } from "@/components/ui/color-input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { agentOptions } from "@/lib/validations/onboarding"
+import { useGetWidgetConfigByAgent } from "@/lib/features/widget"
+import { useDefaultPublicApiKey } from "@/lib/features/api-keys"
+import { WebWidgetForm } from "@/components/widget-config/web-widget-form"
+
+// Widget preview container ID
+const WIDGET_CONTAINER_ID = "audial-widget-preview-container"
+
+// Skeleton for a form field
+function FormFieldSkeleton({ wide = false }: { wide?: boolean }) {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className={`h-9 ${wide ? 'w-full' : 'w-48'}`} />
+    </div>
+  )
+}
+
+// Skeleton for a card with form fields
+function CardSkeleton({ fields = 3, title = true }: { fields?: number; title?: boolean }) {
+  return (
+    <Card>
+      {title && (
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+      )}
+      <CardContent className="space-y-4">
+        {Array.from({ length: fields }).map((_, i) => (
+          <FormFieldSkeleton key={i} wide />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Full Agent page skeleton
+function AgentPageSkeleton() {
+  return (
+    <PageLayout
+      title="Agent"
+      description="Configure and manage your AI agent settings."
+      icon={IconRobot}
+    >
+      <div className="px-4 lg:px-6">
+        <div className="w-full p-2 bg-muted rounded-lg">
+          {/* Tabs skeleton */}
+          <div className="flex items-center gap-2 mb-6">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+
+          {/* Tab content skeleton */}
+          <div className="space-y-4">
+            {/* Avatar Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="size-16 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Basic Info Card Skeleton */}
+            <CardSkeleton fields={3} />
+
+            {/* Phone Numbers Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-5" />
+                      <div>
+                        <Skeleton className="h-4 w-32 mb-1" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Model Config Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-44" />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormFieldSkeleton wide />
+                <FormFieldSkeleton wide />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </PageLayout>
+  )
+}
+
+// Skeleton for agent content (when agent is selected but loading)
+function AgentContentSkeleton() {
+  return (
+    <div className="px-4 lg:px-6">
+      <div className="w-full p-2 bg-muted rounded-lg">
+        {/* Tabs skeleton */}
+        <div className="flex items-center gap-2 mb-6">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+
+        {/* Tab content skeleton - simplified */}
+        <div className="space-y-4">
+          <CardSkeleton fields={2} />
+          <CardSkeleton fields={3} />
+          <CardSkeleton fields={2} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Agent template configurations for creation
+const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
+  sarah: {
+    languageCode: "en",
+    prompt: "You are Sarah, a friendly and professional AI receptionist. Your role is to greet callers warmly, understand their needs, and help schedule appointments. Be helpful, patient, and always maintain a positive tone.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  charlie: {
+    languageCode: "en",
+    prompt: "You are Charlie, an expert at qualifying leads and conducting surveys. Your role is to ask thoughtful questions, gather important information, and help identify qualified prospects. Be conversational but focused on gathering key data points.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "29vD33N1CtxCmqQRPOHJ" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  kate: {
+    languageCode: "en",
+    prompt: "You are Kate, a skilled sales representative and customer support specialist. Your role is to help customers find the right products, answer their questions, and provide excellent service. Be enthusiastic, knowledgeable, and solution-oriented.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+    maxDurationSeconds: 900,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+  other: {
+    languageCode: "en",
+    prompt: "You are a helpful AI assistant. Customize this prompt to define your agent's personality, role, and behavior.",
+    model: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" },
+    maxDurationSeconds: 600,
+    allowInterruptions: true,
+    interruptionSensitivity: "medium",
+  },
+}
 
 export default function AgentPage() {
-  // Core config state (tracked by autosave)
+  // API hooks
+  const { data: agents = [], isLoading: isLoadingAgents, error: agentsError } = useAgents()
+  const createAgentMutation = useCreateAgent()
+  const updateAgentMutation = useUpdateAgent()
+
+  // Phone numbers
+  const { data: allPhoneNumbers = [] } = usePhoneNumbers()
+
+  // Selected agent ID
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
+  // Create Agent Dialog State
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [newAgentName, setNewAgentName] = useState("")
+
+  // Fetch the selected agent
+  const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
+
+  // Fetch widget config for the selected agent
+  const { data: widgetConfig, isLoading: isLoadingWidget } = useGetWidgetConfigByAgent(selectedAgentId ?? "")
+
+  // Widget preview state - always enabled when on widget tab
+  const { data: defaultApiKey } = useDefaultPublicApiKey()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get("tab")
+  const validTabs = ["general", "voice", "rules", "tools", "widget"]
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "general"
+  const [activeTab, setActiveTab] = useState(initialTab)
+  const widgetScriptRef = React.useRef<HTMLScriptElement | null>(null)
+
+  // Load/unload widget preview when on widget tab
+  const widgetPreviewEnabled = activeTab === "widget"
+
+  // Helper to clean up widget DOM elements
+  const cleanupWidget = useCallback(() => {
+    // Call destroy if available
+    if (window.audial?.destroy) {
+      window.audial.destroy()
+    }
+    // Remove the main widget container
+    const widgetRoot = document.getElementById("audial-widget")
+    if (widgetRoot) {
+      widgetRoot.remove()
+    }
+    // Remove any widget DOM elements that might persist
+    const widgetElements = document.querySelectorAll('[id^="audial"], [class*="audial"]')
+    widgetElements.forEach((el) => el.remove())
+    // Also check for common widget container patterns
+    const shadowHosts = document.querySelectorAll('[data-audial-widget]')
+    shadowHosts.forEach((el) => el.remove())
+    // Remove script
+    if (widgetScriptRef.current) {
+      widgetScriptRef.current.remove()
+      widgetScriptRef.current = null
+    }
+    // Reset window.audial to force re-initialization
+    if (window.audial) {
+      delete (window as Window & { audial?: unknown }).audial
+    }
+  }, [])
+
+  // Dispatch config updates to the widget preview in real-time
+  const handleDispatchAction = useCallback((payload: Record<string, unknown>) => {
+    if (typeof window.audial === "undefined") return;
+    window.audial.dispatchAction("update-config", payload);
+  }, []);
+
+  useEffect(() => {
+    if (!widgetPreviewEnabled || !selectedAgentId || !defaultApiKey?.id) {
+      cleanupWidget()
+      return
+    }
+
+    let retryTimeout: NodeJS.Timeout | null = null
+    let cancelled = false
+
+    // Wait for the container to be rendered before loading the widget
+    const loadWidget = () => {
+      if (cancelled) return
+
+      const container = document.getElementById(WIDGET_CONTAINER_ID)
+      if (!container) {
+        // Container not ready yet, retry after a short delay
+        retryTimeout = setTimeout(loadWidget, 50)
+        return
+      }
+
+      // Load the widget script
+      const script = document.createElement("script")
+      script.type = "module"
+      script.src = "/widget/bundle.mjs" // Local development bundle
+      script.onload = () => {
+        if (cancelled) return
+        if (window.audial) {
+          window.audial.loadWidget({
+            agentId: selectedAgentId,
+            apiKey: defaultApiKey.id,
+            baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+            options: {
+              containerId: WIDGET_CONTAINER_ID,
+              previewMode: true,
+              defaultOpen: true,
+              debug: false,
+            },
+          })
+        }
+      }
+      script.onerror = () => {
+        if (cancelled) return
+        // Try production URL if local fails
+        const prodScript = document.createElement("script")
+        prodScript.type = "module"
+        prodScript.src = "https://app.audial.co/widget/bundle.mjs"
+        prodScript.onload = () => {
+          if (cancelled) return
+          if (window.audial) {
+            window.audial.loadWidget({
+              agentId: selectedAgentId,
+              apiKey: defaultApiKey.id,
+              baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+              options: {
+                containerId: WIDGET_CONTAINER_ID,
+                previewMode: true,
+                defaultOpen: true,
+                debug: false,
+              },
+            })
+          }
+        }
+        prodScript.onerror = () => {
+          toast.error("Failed to load widget preview")
+        }
+        widgetScriptRef.current = prodScript
+        document.body.appendChild(prodScript)
+      }
+
+      widgetScriptRef.current = script
+      document.body.appendChild(script)
+    }
+
+    // Use requestAnimationFrame to ensure DOM is painted before checking
+    const rafId = requestAnimationFrame(() => {
+      loadWidget()
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+      if (retryTimeout) clearTimeout(retryTimeout)
+      cleanupWidget()
+    }
+  }, [widgetPreviewEnabled, selectedAgentId, defaultApiKey?.id, cleanupWidget])
+
+  // Auto-select first agent when agents load
+  useEffect(() => {
+    if (agents && agents.length > 0 && !selectedAgentId) {
+      setSelectedAgentId(agents[0].id)
+    }
+  }, [agents, selectedAgentId])
+
+  // Core config state (synced from API)
+  const [agentName, setAgentName] = useState("")
+  const [agentPrompt, setAgentPrompt] = useState("")
   const [temperature, setTemperature] = useState([0.7])
-  const [maxTokens, setMaxTokens] = useState([2048])
   const [speed, setSpeed] = useState([1.0])
   const [stability, setStability] = useState([0.5])
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(["handle-support", "qualify-leads"])
-  const [conversationStages, setConversationStages] = useState({
-    greeting: "Hi! I'm here to help you today. What can I assist you with?",
-    informationGathering: "Could you tell me more about what you're looking for?",
-    problemSolving: "Let me help you with that.",
-    closing: "Is there anything else I can help you with today?",
-  })
-  const [selectedTemplate, setSelectedTemplate] = useState("support")
-  const [controlMode, setControlMode] = useState<"simple" | "flow">("simple")
-  const [shouldDo, setShouldDo] = useState([
-    "Greet customers warmly",
-    "Ask clarifying questions",
-    "Provide accurate information",
-  ])
-  const [shouldNotDo, setShouldNotDo] = useState([
-    "Make promises about refunds",
-    "Share personal information",
-    "Use offensive language",
-  ])
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState(1800)
+  const [silenceTimeout, setSilenceTimeout] = useState(10)
+  const [allowInterruptions, setAllowInterruptions] = useState(true)
+  const [modelProvider, setModelProvider] = useState("openai")
+  const [modelName, setModelName] = useState("gpt-4")
+  const [voiceProvider, setVoiceProvider] = useState("elevenlabs")
+  const [voiceId, setVoiceId] = useState("")
+
+  // Required API fields
+  const [languageCode, setLanguageCode] = useState("en")
+
+  // V3 API fields
+  const [routings, setRoutings] = useState<Routing[]>([])
+  const [tools, setTools] = useState<Tool[]>([])
+
+  // Additional API fields
+  const [similarityBoost, setSimilarityBoost] = useState([0.75])
+  const [interruptionSensitivity, setInterruptionSensitivity] = useState<"low" | "medium" | "high">("medium")
+  const [transcriberProvider, setTranscriberProvider] = useState("deepgram")
+  const [transcriberModel, setTranscriberModel] = useState("nova-2")
+  const [checkHumanPresence, setCheckHumanPresence] = useState(true)
+  const [checkHumanPresenceCount, setCheckHumanPresenceCount] = useState(2)
+  const [enableCutoffResponses, setEnableCutoffResponses] = useState(false)
+  const [cutoffResponses, setCutoffResponses] = useState<string[]>([])
 
   // UI-only state (not tracked by autosave)
   const [advancedMode, setAdvancedMode] = useState(false)
-  const [newShouldDo, setNewShouldDo] = useState("")
-  const [newShouldNotDo, setNewShouldNotDo] = useState("")
+  const [newCutoffResponse, setNewCutoffResponse] = useState("")
 
-  // Consolidate config for autosave
-  const agentConfig = useMemo<AgentConfig>(
-    () => ({
-      temperature: temperature[0],
-      maxTokens: maxTokens[0],
-      speed: speed[0],
-      stability: stability[0],
-      selectedSkills,
-      conversationStages,
-      selectedTemplate,
-      controlMode,
-      shouldDo,
-      shouldNotDo,
-    }),
-    [temperature, maxTokens, speed, stability, selectedSkills, conversationStages, selectedTemplate, controlMode, shouldDo, shouldNotDo]
-  )
+  // Sync form state when agent data loads
+  useEffect(() => {
+    if (agent) {
+      setAgentName(agent.name || "")
+      setAgentPrompt(agent.prompt || "")
+      setTemperature([agent.model?.temperature ?? 0.7])
+      setSpeed([agent.voice?.speed ?? 1.0])
+      setStability([agent.voice?.stability ?? 0.5])
+      setSimilarityBoost([agent.voice?.similarityBoost ?? 0.75])
+      setMaxDurationSeconds(agent.maxDurationSeconds ?? 1800)
+      setSilenceTimeout(agent.allowedIdleTime ?? 10)
+      setAllowInterruptions(agent.allowInterruptions ?? true)
+      setInterruptionSensitivity(agent.interruptionSensitivity || "medium")
+      setModelProvider(agent.model?.provider || "openai")
+      setModelName(agent.model?.model || "gpt-4")
+      setVoiceProvider(agent.voice?.provider || "elevenlabs")
+      setVoiceId(agent.voice?.voiceId || "")
+      setLanguageCode(agent.languageCode || "en")
+      setTranscriberProvider(agent.transcriber?.provider || "deepgram")
+      setTranscriberModel(agent.transcriber?.model || "nova-2")
+      setCheckHumanPresence(agent.checkHumanPresence ?? true)
+      setCheckHumanPresenceCount(agent.checkHumanPresenceCount ?? 2)
+      setEnableCutoffResponses(agent.enableCutoffResponses ?? false)
+      setCutoffResponses(agent.cutoffResponses || [])
+      setRoutings(agent.routings || [])
+      setTools(agent.tools || [])
+    }
+  }, [agent])
 
-  // Save function (would connect to API in production)
-  const handleSave = useCallback(async (config: AgentConfig) => {
-    // TODO: Replace with actual API call
-    // await api.updateAgentConfig(config)
-    console.log("Saving agent config:", config)
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }, [])
+  // Build update payload from form state
+  const buildUpdatePayload = useCallback((): UpdateAgentInput => {
+    return {
+      name: agentName,
+      languageCode,
+      prompt: agentPrompt,
+      model: {
+        provider: modelProvider,
+        model: modelName,
+        temperature: temperature[0],
+      },
+      voice: {
+        provider: voiceProvider,
+        voiceId: voiceId,
+        speed: speed[0],
+        stability: stability[0],
+        similarityBoost: similarityBoost[0],
+      },
+      transcriber: {
+        provider: transcriberProvider,
+        model: transcriberModel,
+      },
+      maxDurationSeconds,
+      allowedIdleTime: silenceTimeout,
+      allowInterruptions,
+      interruptionSensitivity,
+      checkHumanPresence,
+      checkHumanPresenceCount,
+      enableCutoffResponses,
+      cutoffResponses,
+      routings,
+      tools,
+    }
+  }, [
+    agentName,
+    languageCode,
+    agentPrompt,
+    modelProvider,
+    modelName,
+    temperature,
+    voiceProvider,
+    voiceId,
+    speed,
+    stability,
+    similarityBoost,
+    transcriberProvider,
+    transcriberModel,
+    maxDurationSeconds,
+    silenceTimeout,
+    allowInterruptions,
+    interruptionSensitivity,
+    checkHumanPresence,
+    checkHumanPresenceCount,
+    enableCutoffResponses,
+    cutoffResponses,
+    routings,
+    tools,
+  ])
 
-  // Autosave hook
+  // Save function using the API
+  const handleSave = useCallback(async () => {
+    if (!selectedAgentId) return
+
+    const payload = buildUpdatePayload()
+    await updateAgentMutation.mutateAsync({ id: selectedAgentId, data: payload })
+  }, [selectedAgentId, buildUpdatePayload, updateAgentMutation])
+
+  // Autosave hook - using the API payload
+  const agentConfig = useMemo(() => buildUpdatePayload(), [buildUpdatePayload])
+
   const { status, lastSaved } = useAutosave({
     data: agentConfig,
     onSave: handleSave,
-    debounceMs: 1000,
-    enabled: true,
+    debounceMs: 1500,
+    enabled: !!selectedAgentId && !!agent,
   })
 
+  const isSaving = status === "saving"
+
+  // Create Agent Handler
+  const handleCreateAgent = async () => {
+    if (!selectedTemplateId || !newAgentName.trim()) return
+
+    const template = agentTemplates[selectedTemplateId]
+    if (!template) return
+
+    try {
+      const newAgent = await createAgentMutation.mutateAsync({
+        name: newAgentName.trim(),
+        ...template,
+      })
+
+      // Close dialog and select the new agent
+      setShowCreateDialog(false)
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+      setSelectedAgentId(newAgent.id)
+
+      toast.success(`Agent "${newAgentName.trim()}" created successfully`)
+    } catch {
+      // Error is handled by mutation
+    }
+  }
+
+  const handleCreateDialogClose = (open: boolean) => {
+    setShowCreateDialog(open)
+    if (!open) {
+      setSelectedTemplateId(null)
+      setNewAgentName("")
+    }
+  }
+
+  // Loading state
+  if (isLoadingAgents) {
+    return <AgentPageSkeleton />
+  }
+
+  // Error state
+  if (agentsError) {
+    return (
+      <PageLayout
+        title="Agent"
+        description="Configure and manage your AI agent settings."
+        icon={IconRobot}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load agents</p>
+          <p className="text-sm text-muted-foreground">
+            {agentsError instanceof Error ? agentsError.message : "An error occurred"}
+          </p>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // Create Agent Dialog Component (reusable)
+  const createAgentDialog = (
+    <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Create New Agent</DialogTitle>
+          <DialogDescription>
+            Choose a template to start with. You can customize your agent after creation.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          {/* Template Selection */}
+          <div className="space-y-3">
+            <Label>Choose a Template</Label>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {agentOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTemplateId(option.id)
+                    // Auto-fill name for templates (except "other")
+                    if (option.id !== "other" && !newAgentName) {
+                      setNewAgentName(option.name)
+                    }
+                  }}
+                  className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all hover:shadow-md ${
+                    selectedTemplateId === option.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <div className="relative aspect-square overflow-hidden bg-muted">
+                    {option.image ? (
+                      <img
+                        src={option.image}
+                        alt={option.name}
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <IconRobot className="size-10 text-muted-foreground/40" strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 p-2">
+                    <span className="font-medium text-sm">{option.name}</span>
+                    <span className="text-xs text-muted-foreground line-clamp-2">
+                      {option.role}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent Name Input */}
+          <div className="space-y-2">
+            <Label htmlFor="agent-name">Agent Name</Label>
+            <Input
+              id="agent-name"
+              placeholder="Enter agent name"
+              value={newAgentName}
+              onChange={(e) => setNewAgentName(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => handleCreateDialogClose(false)}
+            disabled={createAgentMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateAgent}
+            disabled={!selectedTemplateId || !newAgentName.trim() || createAgentMutation.isPending}
+          >
+            {createAgentMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Agent"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  // No agents state
+  if (!agents || agents.length === 0) {
+    return (
+      <>
+        <PageLayout
+          title="Agent"
+          description="Configure and manage your AI agent settings."
+          icon={IconRobot}
+        >
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <IconRobot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="font-medium mb-1">No agents yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first AI agent to get started.
+            </p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <IconPlus className="mr-2 h-4 w-4" />
+              Create Agent
+            </Button>
+          </div>
+        </PageLayout>
+        {createAgentDialog}
+      </>
+    )
+  }
+
   return (
+    <>
     <PageLayout
       title="Agent"
       description="Configure and manage your AI agent settings."
       icon={IconRobot}
       actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
     >
+      {isLoadingAgent ? (
+        <AgentContentSkeleton />
+      ) : (
       <div className="px-4 lg:px-6">
-        <Tabs defaultValue="general" className="w-full p-2 bg-muted">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-2 bg-muted">
           <TabsList>
             <TabsTrigger value="general">
               <IconSettings className="size-4" />
@@ -145,17 +753,9 @@ export default function AgentPage() {
               <IconRuler className="size-4" />
               Rules
             </TabsTrigger>
-            <TabsTrigger value="knowledge">
-              <IconBook className="size-4" />
-              Knowledge Base
-            </TabsTrigger>
             <TabsTrigger value="tools">
               <IconTool className="size-4" />
               Tools
-            </TabsTrigger>
-            <TabsTrigger value="scorecard">
-              <IconChartBar className="size-4" />
-              Scorecard
             </TabsTrigger>
             <TabsTrigger value="widget">
               <IconApps className="size-4" />
@@ -191,7 +791,13 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="agent-name">Agent Name</Label>
-                  <Input id="agent-name" placeholder="My AI Assistant" defaultValue="Customer Support Agent" />
+                  <Input
+                    id="agent-name"
+                    placeholder="My AI Assistant"
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    disabled={isSaving}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -201,12 +807,13 @@ export default function AgentPage() {
                     placeholder="Describe what your agent does..."
                     defaultValue="An AI-powered customer support agent that helps users with inquiries."
                     rows={3}
+                    disabled={isSaving}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="agent-role">Role</Label>
-                  <Select defaultValue="support">
+                  <Select defaultValue="support" disabled={isSaving}>
                     <SelectTrigger id="agent-role" className="w-full">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -224,34 +831,64 @@ export default function AgentPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Phone Numbers</CardTitle>
-                <CardDescription>Manage phone numbers for your agent</CardDescription>
+                <CardDescription>Your purchased phone numbers</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <IconPhone className="size-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">+1 (555) 123-4567</p>
-                        <p className="text-xs text-muted-foreground">Primary • United States</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      Remove
+                {allPhoneNumbers.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center">
+                    <IconPhone className="mx-auto size-8 text-muted-foreground" />
+                    <h3 className="mt-2 text-sm font-semibold">No phone numbers</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Purchase a phone number to get started
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 bg-transparent"
+                      onClick={() => window.location.href = "/settings/phone-numbers"}
+                    >
+                      Manage Phone Numbers
                     </Button>
                   </div>
-                </div>
-
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <IconPhone className="mx-auto size-8 text-muted-foreground" />
-                  <h3 className="mt-2 text-sm font-semibold">No additional numbers</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Purchase a phone number to get started</p>
-                  <Button variant="outline" className="mt-4 bg-transparent">
-                    Purchase Number
-                  </Button>
-                </div>
+                ) : (
+                  allPhoneNumbers.map((phone) => (
+                    <div key={phone.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <IconPhone className="size-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{phone.number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {phone.name || "Unnamed"} • {phone.provider}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.location.href = "/settings/phone-numbers"}
+                        >
+                          Manage
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
+
+            <CallForwardingCard
+              enabled={routings.length > 0}
+              routing={routings[0] || null}
+              agents={agents || []}
+              currentAgentId={selectedAgentId || ""}
+              onEnabledChange={(enabled) => {
+                if (!enabled) setRoutings([])
+              }}
+              onRoutingChange={(routing) => {
+                setRoutings(routing ? [routing] : [])
+              }}
+              disabled={isSaving}
+            />
 
             <Card>
               <CardHeader>
@@ -260,16 +897,29 @@ export default function AgentPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
+                  <Label htmlFor="model-provider">Provider</Label>
+                  <Select value={modelProvider} onValueChange={setModelProvider} disabled={isSaving}>
+                    <SelectTrigger id="model-provider" className="w-full">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
-                  <Select defaultValue="gpt-4">
+                  <Select value={modelName} onValueChange={setModelName} disabled={isSaving}>
                     <SelectTrigger id="model" className="w-full">
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-4">GPT-4</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                      <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
                       <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                      <SelectItem value="gpt-3.5">GPT-3.5 Turbo</SelectItem>
-                      <SelectItem value="claude-3">Claude 3</SelectItem>
+                      <SelectItem value="gpt-4">GPT-4</SelectItem>
+                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -286,25 +936,11 @@ export default function AgentPage() {
                     min={0}
                     max={2}
                     step={0.1}
+                    disabled={isSaving}
                   />
                   <p className="text-xs text-muted-foreground">Controls randomness in responses</p>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="max-tokens">Max Tokens</Label>
-                    <span className="text-sm text-muted-foreground">{maxTokens[0]}</span>
-                  </div>
-                  <Slider
-                    id="max-tokens"
-                    value={maxTokens}
-                    onValueChange={setMaxTokens}
-                    min={100}
-                    max={4000}
-                    step={100}
-                  />
-                  <p className="text-xs text-muted-foreground">Maximum length of responses</p>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -318,42 +954,29 @@ export default function AgentPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="voice-provider">Voice Provider</Label>
-                  <Select defaultValue="elevenlabs">
+                  <Select value={voiceProvider} onValueChange={setVoiceProvider} disabled={isSaving}>
                     <SelectTrigger id="voice-provider" className="w-full">
                       <SelectValue placeholder="Select provider" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
-                      <SelectItem value="openai">OpenAI TTS</SelectItem>
-                      <SelectItem value="google">Google Cloud TTS</SelectItem>
-                      <SelectItem value="azure">Azure Speech</SelectItem>
+                      <SelectItem value="cartesia">Cartesia</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="voice">Voice</Label>
-                  <Select defaultValue="rachel">
-                    <SelectTrigger id="voice" className="w-full">
-                      <SelectValue placeholder="Select voice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rachel">Rachel (Female, US)</SelectItem>
-                      <SelectItem value="adam">Adam (Male, US)</SelectItem>
-                      <SelectItem value="bella">Bella (Female, UK)</SelectItem>
-                      <SelectItem value="josh">Josh (Male, US)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Voice Preview</Label>
-                    <p className="text-xs text-muted-foreground">Test the selected voice</p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Play Sample
-                  </Button>
+                  <Label htmlFor="voice">Voice ID</Label>
+                  <Input
+                    id="voice"
+                    placeholder="Enter voice ID"
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                    disabled={isSaving}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The voice ID from your provider (e.g., ElevenLabs voice ID)
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -369,7 +992,7 @@ export default function AgentPage() {
                     <Label htmlFor="voice-speed">Speed</Label>
                     <span className="text-sm text-muted-foreground">{speed[0].toFixed(1)}x</span>
                   </div>
-                  <Slider id="voice-speed" value={speed} onValueChange={setSpeed} min={0.5} max={2.0} step={0.1} />
+                  <Slider id="voice-speed" value={speed} onValueChange={setSpeed} min={0.5} max={2.0} step={0.1} disabled={isSaving} />
                   <p className="text-xs text-muted-foreground">Speaking speed multiplier</p>
                 </div>
 
@@ -385,466 +1008,71 @@ export default function AgentPage() {
                     min={0}
                     max={1}
                     step={0.1}
+                    disabled={isSaving}
                   />
                   <p className="text-xs text-muted-foreground">Voice consistency level</p>
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Background Noise Cancellation</Label>
-                    <p className="text-xs text-muted-foreground">Reduce background noise in calls</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="voice-similarity">Similarity Boost</Label>
+                    <span className="text-sm text-muted-foreground">{similarityBoost[0].toFixed(2)}</span>
                   </div>
-                  <Switch defaultChecked />
+                  <Slider
+                    id="voice-similarity"
+                    value={similarityBoost}
+                    onValueChange={setSimilarityBoost}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    disabled={isSaving}
+                  />
+                  <p className="text-xs text-muted-foreground">How closely the voice matches the original</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Speech Recognition</CardTitle>
+                <CardDescription>Configure how the agent understands spoken input</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="transcriber-provider">Transcriber Provider</Label>
+                  <Select value={transcriberProvider} onValueChange={setTranscriberProvider} disabled={isSaving}>
+                    <SelectTrigger id="transcriber-provider" className="w-full">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deepgram">Deepgram</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="transcriber-model">Transcriber Model</Label>
+                  <Select value={transcriberModel} onValueChange={setTranscriberModel} disabled={isSaving}>
+                    <SelectTrigger id="transcriber-model" className="w-full">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nova-2">Nova 2 (Recommended)</SelectItem>
+                      <SelectItem value="nova">Nova</SelectItem>
+                      <SelectItem value="enhanced">Enhanced</SelectItem>
+                      <SelectItem value="base">Base</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Nova 2 offers the best accuracy for real-time transcription
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="rules" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Agent Skills</CardTitle>
-                <CardDescription>Select capabilities your agent should have</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-support"
-                      checked={selectedSkills.includes("handle-support")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "handle-support"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "handle-support"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-support" className="cursor-pointer font-medium">
-                        Handle Support Tickets
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Resolve customer issues and questions</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-leads"
-                      checked={selectedSkills.includes("qualify-leads")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "qualify-leads"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "qualify-leads"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-leads" className="cursor-pointer font-medium">
-                        Qualify Leads
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Ask questions to assess fit and interest</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-schedule"
-                      checked={selectedSkills.includes("schedule-appointments")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "schedule-appointments"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "schedule-appointments"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-schedule" className="cursor-pointer font-medium">
-                        Schedule Appointments
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Book, reschedule, and confirm meetings</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-collect"
-                      checked={selectedSkills.includes("collect-information")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "collect-information"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "collect-information"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-collect" className="cursor-pointer font-medium">
-                        Collect Information
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Gather customer data and feedback</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-answer"
-                      checked={selectedSkills.includes("answer-questions")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "answer-questions"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "answer-questions"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-answer" className="cursor-pointer font-medium">
-                        Answer FAQs
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Respond to common questions</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 rounded-lg border p-3">
-                    <Checkbox
-                      id="skill-transfer"
-                      checked={selectedSkills.includes("transfer-calls")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSkills([...selectedSkills, "transfer-calls"])
-                        } else {
-                          setSelectedSkills(selectedSkills.filter((s) => s !== "transfer-calls"))
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="skill-transfer" className="cursor-pointer font-medium">
-                        Transfer Calls
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Escalate to human agents when needed</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full bg-transparent">
-                  <IconPlus className="mr-2 size-4" />
-                  Add Custom Skill
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Conversation Stages</CardTitle>
-                <CardDescription>Define how the agent behaves at each stage of the conversation</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="stage-greeting">Opening / Greeting</Label>
-                  <Textarea
-                    id="stage-greeting"
-                    placeholder="How should the agent greet callers?"
-                    rows={2}
-                    value={conversationStages.greeting}
-                    onChange={(e) => setConversationStages({ ...conversationStages, greeting: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">First thing the agent says when answering</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="stage-gathering">Information Gathering</Label>
-                  <Textarea
-                    id="stage-gathering"
-                    placeholder="What questions should the agent ask to understand the caller's needs?"
-                    rows={3}
-                    value={conversationStages.informationGathering}
-                    onChange={(e) =>
-                      setConversationStages({ ...conversationStages, informationGathering: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">Discovery phase - collecting context and requirements</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="stage-solving">Problem Solving / Action</Label>
-                  <Textarea
-                    id="stage-solving"
-                    placeholder="How should the agent provide help or take action?"
-                    rows={3}
-                    value={conversationStages.problemSolving}
-                    onChange={(e) => setConversationStages({ ...conversationStages, problemSolving: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Main interaction - resolving issues or achieving goals
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="stage-closing">Closing / Confirmation</Label>
-                  <Textarea
-                    id="stage-closing"
-                    placeholder="How should the agent wrap up the conversation?"
-                    rows={2}
-                    value={conversationStages.closing}
-                    onChange={(e) => setConversationStages({ ...conversationStages, closing: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">Final check before ending the call</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Agent Template</CardTitle>
-                <CardDescription>Choose a starting point that matches your use case</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  <Button
-                    variant={selectedTemplate === "support" ? "default" : "outline"}
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => setSelectedTemplate("support")}
-                  >
-                    <IconSettings className="size-5" />
-                    <div className="text-sm font-medium">Customer Support</div>
-                  </Button>
-                  <Button
-                    variant={selectedTemplate === "sales" ? "default" : "outline"}
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => setSelectedTemplate("sales")}
-                  >
-                    <IconTarget className="size-5" />
-                    <div className="text-sm font-medium">Sales & Leads</div>
-                  </Button>
-                  <Button
-                    variant={selectedTemplate === "scheduling" ? "default" : "outline"}
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => setSelectedTemplate("scheduling")}
-                  >
-                    <IconBook className="size-5" />
-                    <div className="text-sm font-medium">Scheduling</div>
-                  </Button>
-                  <Button
-                    variant={selectedTemplate === "collection" ? "default" : "outline"}
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => setSelectedTemplate("collection")}
-                  >
-                    <IconChartBar className="size-5" />
-                    <div className="text-sm font-medium">Info Collection</div>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Control Mode</CardTitle>
-                <CardDescription>Choose how you want to define conversation behavior</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-3">
-                  <Button
-                    variant={controlMode === "simple" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setControlMode("simple")}
-                  >
-                    Simple Goals
-                  </Button>
-                  <Button
-                    variant={controlMode === "flow" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setControlMode("flow")}
-                  >
-                    Flow Builder
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Agent Goals</CardTitle>
-                <CardDescription>What should the agent accomplish during conversations?</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="primary-goal">Primary Goal</Label>
-                  <Input
-                    id="primary-goal"
-                    placeholder="e.g., Resolve customer issues and provide support"
-                    defaultValue="Resolve customer issues and provide support"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="secondary-goals">Secondary Goals (optional)</Label>
-                  <Textarea
-                    id="secondary-goals"
-                    placeholder="e.g., Collect customer feedback, Upsell premium features"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="success-criteria">Success Criteria</Label>
-                  <Input
-                    id="success-criteria"
-                    placeholder="e.g., Customer issue is resolved or escalated"
-                    defaultValue="Customer issue is resolved or escalated"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Behavioral Rules</CardTitle>
-                <CardDescription>Define what the agent should and shouldn't do</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <Label className="text-base">Should Do</Label>
-                  <div className="space-y-2">
-                    {shouldDo.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 rounded-lg border bg-muted/50 p-2 pl-3">
-                        <div className="flex-1 text-sm">{item}</div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setShouldDo(shouldDo.filter((_, i) => i !== index))}
-                        >
-                          <IconX className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a behavior the agent should follow"
-                      value={newShouldDo}
-                      onChange={(e) => setNewShouldDo(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newShouldDo.trim()) {
-                          setShouldDo([...shouldDo, newShouldDo.trim()])
-                          setNewShouldDo("")
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (newShouldDo.trim()) {
-                          setShouldDo([...shouldDo, newShouldDo.trim()])
-                          setNewShouldDo("")
-                        }
-                      }}
-                    >
-                      <IconPlus className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <Label className="text-base">Should Not Do</Label>
-                  <div className="space-y-2">
-                    {shouldNotDo.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 rounded-lg border bg-destructive/5 p-2 pl-3">
-                        <div className="flex-1 text-sm">{item}</div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setShouldNotDo(shouldNotDo.filter((_, i) => i !== index))}
-                        >
-                          <IconX className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a behavior the agent should avoid"
-                      value={newShouldNotDo}
-                      onChange={(e) => setNewShouldNotDo(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newShouldNotDo.trim()) {
-                          setShouldNotDo([...shouldNotDo, newShouldNotDo.trim()])
-                          setNewShouldNotDo("")
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (newShouldNotDo.trim()) {
-                          setShouldNotDo([...shouldNotDo, newShouldNotDo.trim()])
-                          setNewShouldNotDo("")
-                        }
-                      }}
-                    >
-                      <IconPlus className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {controlMode === "flow" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Conversation Flow</CardTitle>
-                  <CardDescription>Define how the agent structures conversations</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="greeting">Greeting Message</Label>
-                    <Textarea
-                      id="greeting"
-                      placeholder="e.g., Hi! I'm here to help with your questions today."
-                      rows={2}
-                      defaultValue="Hi! I'm here to help with your questions today."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="topics">Topics to Discuss</Label>
-                    <Textarea
-                      id="topics"
-                      placeholder="List the topics the agent should be prepared to discuss (one per line)"
-                      rows={4}
-                      defaultValue="Account issues&#10;Billing questions&#10;Technical support&#10;Product information"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="escalation">Escalation Criteria</Label>
-                    <Textarea
-                      id="escalation"
-                      placeholder="When should the agent transfer to a human?"
-                      rows={3}
-                      defaultValue="Customer explicitly requests human agent&#10;Issue requires account access or refunds&#10;Customer is frustrated or angry"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="closing">Closing Message</Label>
-                    <Textarea
-                      id="closing"
-                      placeholder="e.g., Is there anything else I can help you with today?"
-                      rows={2}
-                      defaultValue="Is there anything else I can help you with today?"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
+            {/* System Prompt Card */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -873,481 +1101,277 @@ export default function AgentPage() {
                     <Label htmlFor="system-prompt">System Prompt</Label>
                     <Textarea
                       id="system-prompt"
-                      placeholder="Raw system prompt..."
+                      placeholder="Enter your agent's system prompt..."
                       rows={12}
                       className="font-mono text-xs"
-                      defaultValue={`You are a professional customer support agent for [Company Name].
-
-PRIMARY GOAL: ${shouldDo[0] || "Resolve customer issues and provide support"}
-
-BEHAVIORAL RULES:
-Should Do:
-${shouldDo.map((item) => `- ${item}`).join("\n")}
-
-Should Not Do:
-${shouldNotDo.map((item) => `- ${item}`).join("\n")}
-
-Always be friendly, helpful, and professional. Ask clarifying questions when needed.`}
+                      value={agentPrompt}
+                      onChange={(e) => setAgentPrompt(e.target.value)}
+                      disabled={isSaving}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Changes here will override the structured rules above
+                      This is the main instruction that guides your agent's behavior
                     </p>
                   </div>
                 </CardContent>
               )}
             </Card>
 
+            {/* Conversation Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>Conversation Settings</CardTitle>
                 <CardDescription>Control conversation behavior and limits</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Allow Interruptions</Label>
-                    <p className="text-xs text-muted-foreground">User can interrupt agent while speaking</p>
+                {/* Interruptions */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <Label>Allow Interruptions</Label>
+                      <p className="text-xs text-muted-foreground">User can interrupt agent while speaking</p>
+                    </div>
+                    <Switch
+                      checked={allowInterruptions}
+                      onCheckedChange={setAllowInterruptions}
+                      disabled={isSaving}
+                    />
                   </div>
-                  <Switch defaultChecked />
-                </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>End Call on Silence</Label>
-                    <p className="text-xs text-muted-foreground">Automatically end call after period of silence</p>
-                  </div>
-                  <Switch />
+                  {allowInterruptions && (
+                    <div className="ml-4 space-y-2">
+                      <Label htmlFor="interruption-sensitivity">Interruption Sensitivity</Label>
+                      <Select value={interruptionSensitivity} onValueChange={(value: "low" | "medium" | "high") => setInterruptionSensitivity(value)} disabled={isSaving}>
+                        <SelectTrigger id="interruption-sensitivity" className="w-full">
+                          <SelectValue placeholder="Select sensitivity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Higher sensitivity means the agent responds to shorter interruptions
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
 
+                {/* Human Presence Detection */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <Label>Check Human Presence</Label>
+                      <p className="text-xs text-muted-foreground">Verify a human is on the call before proceeding</p>
+                    </div>
+                    <Switch
+                      checked={checkHumanPresence}
+                      onCheckedChange={setCheckHumanPresence}
+                      disabled={isSaving}
+                    />
+                  </div>
+
+                  {checkHumanPresence && (
+                    <div className="ml-4 space-y-2">
+                      <Label htmlFor="human-presence-count">Verification Attempts</Label>
+                      <Input
+                        id="human-presence-count"
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={checkHumanPresenceCount}
+                        onChange={(e) => setCheckHumanPresenceCount(Number(e.target.value))}
+                        className="w-24"
+                        disabled={isSaving}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Number of attempts before giving up
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Call Limits */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="max-duration">Max Call Duration (min)</Label>
-                    <Input id="max-duration" type="number" defaultValue="30" />
+                    <Label htmlFor="max-duration">Max Call Duration (sec)</Label>
+                    <Input
+                      id="max-duration"
+                      type="number"
+                      value={maxDurationSeconds}
+                      onChange={(e) => setMaxDurationSeconds(Number(e.target.value))}
+                      className={maxDurationSeconds > 3600 ? "border-destructive" : ""}
+                      disabled={isSaving}
+                    />
+                    {maxDurationSeconds > 3600 ? (
+                      <p className="text-xs text-destructive">
+                        Maximum allowed duration is 3600 seconds (60 minutes)
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {Math.floor(maxDurationSeconds / 60)} minutes
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="silence-timeout">Silence Timeout (sec)</Label>
-                    <Input id="silence-timeout" type="number" defaultValue="10" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="knowledge" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Knowledge Sources</CardTitle>
-                <CardDescription>Upload and manage documents for the agent to reference</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-dashed p-8 text-center">
-                  <IconBook className="mx-auto size-12 text-muted-foreground" />
-                  <h3 className="mt-2 text-sm font-semibold">No documents uploaded</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Upload PDFs, text files, or connect data sources</p>
-                  <div className="mt-4 flex justify-center gap-2">
-                    <Button variant="outline">Upload Files</Button>
-                    <Button variant="outline">Connect URL</Button>
+                    <Input
+                      id="silence-timeout"
+                      type="number"
+                      value={silenceTimeout}
+                      onChange={(e) => setSilenceTimeout(Number(e.target.value))}
+                      disabled={isSaving}
+                    />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Cutoff Responses */}
             <Card>
               <CardHeader>
-                <CardTitle>FAQ Management</CardTitle>
-                <CardDescription>Add frequently asked questions and answers</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="faq-question">Question</Label>
-                  <Input id="faq-question" placeholder="What are your business hours?" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="faq-answer">Answer</Label>
-                  <Textarea
-                    id="faq-answer"
-                    placeholder="We're open Monday through Friday, 9 AM to 5 PM EST."
-                    rows={3}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Cutoff Responses</CardTitle>
+                    <CardDescription>Phrases that will immediately end the call</CardDescription>
+                  </div>
+                  <Switch
+                    checked={enableCutoffResponses}
+                    onCheckedChange={setEnableCutoffResponses}
+                    disabled={isSaving}
                   />
                 </div>
-
-                <Button variant="outline" className="w-full bg-transparent">
-                  Add FAQ
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Retrieval Settings</CardTitle>
-                <CardDescription>Configure how the agent uses knowledge</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Enable RAG</Label>
-                    <p className="text-xs text-muted-foreground">Use retrieval-augmented generation</p>
+              {enableCutoffResponses && (
+                <CardContent className="space-y-4">
+                  {cutoffResponses.length > 0 && (
+                    <div className="space-y-2">
+                      {cutoffResponses.map((response, index) => (
+                        <div key={index} className="flex items-center gap-2 rounded-lg border bg-muted/50 p-2 pl-3">
+                          <div className="flex-1 text-sm">{response}</div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => setCutoffResponses(cutoffResponses.filter((_, i) => i !== index))}
+                            disabled={isSaving}
+                          >
+                            <IconX className="size-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add a cutoff phrase, e.g., 'Goodbye'"
+                      value={newCutoffResponse}
+                      onChange={(e) => setNewCutoffResponse(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newCutoffResponse.trim()) {
+                          setCutoffResponses([...cutoffResponses, newCutoffResponse.trim()])
+                          setNewCutoffResponse("")
+                        }
+                      }}
+                      disabled={isSaving}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (newCutoffResponse.trim()) {
+                          setCutoffResponses([...cutoffResponses, newCutoffResponse.trim()])
+                          setNewCutoffResponse("")
+                        }
+                      }}
+                      disabled={isSaving}
+                    >
+                      <IconPlus className="size-4" />
+                    </Button>
                   </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="chunk-size">Chunk Size</Label>
-                  <Select defaultValue="512">
-                    <SelectTrigger id="chunk-size" className="w-full">
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="256">256 tokens</SelectItem>
-                      <SelectItem value="512">512 tokens</SelectItem>
-                      <SelectItem value="1024">1024 tokens</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
+                  <p className="text-xs text-muted-foreground">
+                    When the agent says any of these phrases, the call will end immediately.
+                  </p>
+                </CardContent>
+              )}
             </Card>
           </TabsContent>
 
           <TabsContent value="tools" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Function Calling</CardTitle>
-                <CardDescription>Enable tools and functions the agent can use</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Calendar Integration</Label>
-                    <p className="text-xs text-muted-foreground">Book and manage appointments</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>CRM Integration</Label>
-                    <p className="text-xs text-muted-foreground">Access and update customer records</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Email Actions</Label>
-                    <p className="text-xs text-muted-foreground">Send follow-up emails</p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Web Search</Label>
-                    <p className="text-xs text-muted-foreground">Search the web for information</p>
-                  </div>
-                  <Switch />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Functions</CardTitle>
-                <CardDescription>Add custom API endpoints for the agent to call</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="function-name">Function Name</Label>
-                  <Input id="function-name" placeholder="get_order_status" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="function-description">Description</Label>
-                  <Textarea id="function-description" placeholder="Describe what this function does..." rows={2} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="function-endpoint">API Endpoint</Label>
-                  <Input id="function-endpoint" placeholder="https://api.example.com/orders" />
-                </div>
-
-                <Button variant="outline" className="w-full bg-transparent">
-                  Add Function
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Webhooks</CardTitle>
-                <CardDescription>Receive notifications about agent events</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-url">Webhook URL</Label>
-                  <Input id="webhook-url" placeholder="https://yourapp.com/webhook" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Events to Subscribe</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="call-started" defaultChecked />
-                      <Label htmlFor="call-started" className="font-normal">
-                        Call Started
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="call-ended" defaultChecked />
-                      <Label htmlFor="call-ended" className="font-normal">
-                        Call Ended
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="function-called" />
-                      <Label htmlFor="function-called" className="font-normal">
-                        Function Called
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ToolsSection
+              tools={tools}
+              onToolsChange={setTools}
+              disabled={isSaving}
+            />
           </TabsContent>
 
-          <TabsContent value="scorecard" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Call Quality Metrics</CardTitle>
-                <CardDescription>Configure metrics to evaluate agent performance</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Response Time</Label>
-                    <p className="text-xs text-muted-foreground">Measure how quickly agent responds</p>
+          <TabsContent value="widget" className="mt-6">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left column - Settings & Embed Code */}
+              <div className="flex-1 space-y-6">
+                {isLoadingWidget ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Conversation Flow</Label>
-                    <p className="text-xs text-muted-foreground">Evaluate natural conversation progression</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Goal Achievement</Label>
-                    <p className="text-xs text-muted-foreground">Track if agent achieves call objectives</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Customer Satisfaction</Label>
-                    <p className="text-xs text-muted-foreground">Measure caller satisfaction</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Criteria</CardTitle>
-                <CardDescription>Add custom scoring criteria for your specific use case</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="criteria-name">Criteria Name</Label>
-                  <Input id="criteria-name" placeholder="e.g., Politeness, Accuracy" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="criteria-description">Description</Label>
-                  <Textarea id="criteria-description" placeholder="Describe what this criterion measures..." rows={3} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="criteria-weight">Weight (1-10)</Label>
-                  <Input id="criteria-weight" type="number" min="1" max="10" placeholder="5" />
-                </div>
-
-                <Button variant="outline" className="w-full bg-transparent">
-                  Add Criterion
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Scoring Settings</CardTitle>
-                <CardDescription>Configure how calls are scored</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="score-threshold">Minimum Passing Score</Label>
-                  <Input id="score-threshold" type="number" min="0" max="100" placeholder="70" defaultValue="70" />
-                  <p className="text-xs text-muted-foreground">Calls below this score will be flagged for review</p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Auto-Review Low Scores</Label>
-                    <p className="text-xs text-muted-foreground">Automatically flag calls below threshold</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label>Generate Reports</Label>
-                    <p className="text-xs text-muted-foreground">Create weekly performance reports</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="widget" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Widget Type</CardTitle>
-                <CardDescription>Choose how users can interact with your agent</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup defaultValue="both" className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="chat" id="chat" />
-                    <Label htmlFor="chat">Chat Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="voice" id="voice" />
-                    <Label htmlFor="voice">Voice Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="both" id="both" />
-                    <Label htmlFor="both">Both</Label>
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Appearance</CardTitle>
-                <CardDescription>Customize how the widget looks on your website</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Select defaultValue="right">
-                      <SelectTrigger id="position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="left">Bottom Left</SelectItem>
-                        <SelectItem value="right">Bottom Right</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="side-spacing">Side Spacing</Label>
-                    <div className="relative">
-                      <Input id="side-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bottom-spacing">Bottom Spacing</Label>
-                    <div className="relative">
-                      <Input id="bottom-spacing" type="number" defaultValue="20" className="pr-8" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">px</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label>Primary Color</Label>
-                    <ColorInput
-                      value="#6366f1"
-                      onChange={() => {}}
-                      onReset={() => {}}
-                      placeholder="#6366f1"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="agent-display-name">Display Name</Label>
-                    <Input id="agent-display-name" placeholder="Sarah" defaultValue="Sarah" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="widget-description">Widget Description</Label>
-                  <Textarea
-                    id="widget-description"
-                    placeholder="How can I help you today?"
-                    defaultValue="Hi! I'm here to help you with any questions about our product."
-                    rows={2}
+                ) : widgetConfig ? (
+                  <WebWidgetForm
+                    widgetConfig={widgetConfig}
+                    agentId={selectedAgentId ?? undefined}
+                    hideHeader
+                    onFormChange={handleDispatchAction}
                   />
-                </div>
-              </CardContent>
-            </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-medium mb-1">No widget configured</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Widget configuration will be available once you save your agent settings.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Embed Code</CardTitle>
-                <CardDescription>
-                  Add this code to your website before the closing &lt;/body&gt; tag
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative">
-                  <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-sm">
-                    <code>{`(function (d, t) {
-  if (typeof window === 'undefined') return;
-  var v = d.createElement(t),
-      s = d.getElementsByTagName(t)[0];
-  v.onload = function () {
-    window.audial.loadWidget({
-      agentId: 'agent_abc123xyz',
-      apiKey: 'pk_live_xyz789ghi012',
-    });
-  };
-  v.type = "module";
-  v.src = "https://app.audial.co/widget/bundle.mjs";
-  s.parentNode.insertBefore(v, s);
-})(document, 'script');`}</code>
-                  </pre>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8 p-0 text-slate-400 hover:text-slate-50"
-                    onClick={() => toast.success("Embed code copied to clipboard")}
-                  >
-                    <IconCopy className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Right column - Live Preview */}
+              <div className="w-full lg:w-[440px] shrink-0">
+                <Card className="h-full min-h-[500px] border-0 shadow-none bg-transparent">
+                  <CardHeader className="pt-0">
+                    <CardTitle className="text-base">Live Preview</CardTitle>
+                    <CardDescription>
+                      Interact with your widget in real-time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="relative h-[calc(100%-5rem)]">
+                    {!defaultApiKey?.id ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <IconApps className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="font-medium mb-1">API Key Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Create a public API key in Settings &gt; API Keys to preview the widget.
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        id={WIDGET_CONTAINER_ID}
+                        className="h-full w-full min-h-[400px] flex justify-center"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
+
         </Tabs>
       </div>
+      )}
     </PageLayout>
+    {createAgentDialog}
+    </>
   )
 }

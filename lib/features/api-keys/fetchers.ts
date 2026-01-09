@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api/api-fetch'
+import { apiClient } from '@/lib/api/client'
 import {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
@@ -11,14 +11,27 @@ import {
 
 const PREFIX = '/api/auth'
 
+// Paginated response type from API
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    total_pages: number
+    has_next: boolean
+    has_previous: boolean
+  }
+}
+
 /**
  * List private API keys
  */
 export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
-  const res = await apiFetch<Omit<PrivateApiKey, 'type'>[]>(
-    `${PREFIX}/list-private-keys`
+  const res = await apiClient.get<PaginatedResponse<Omit<PrivateApiKey, 'type'>>>(
+    `${PREFIX}/keys/private?page=1&limit=100`
   )
-  return res.map((key) => ({
+  return res.data.map((key) => ({
     ...key,
     type: KeyType.PRIVATE as const,
   }))
@@ -28,10 +41,10 @@ export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
  * List public API keys
  */
 export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
-  const res = await apiFetch<Omit<PublicApiKey, 'type'>[]>(
-    `${PREFIX}/list-public-keys`
+  const res = await apiClient.get<PaginatedResponse<Omit<PublicApiKey, 'type'>>>(
+    `${PREFIX}/keys/public?page=1&limit=100`
   )
-  return res.map((key) => ({
+  return res.data.map((key) => ({
     ...key,
     type: KeyType.PUBLIC as const,
   }))
@@ -41,7 +54,7 @@ export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
  * Get default public API key (used for widget embed code)
  */
 export async function getDefaultPublicApiKey(): Promise<PublicApiKey> {
-  const res = await apiFetch<Omit<PublicApiKey, 'type'>>(
+  const res = await apiClient.get<Omit<PublicApiKey, 'type'>>(
     `${PREFIX}/get-default-public-key`
   )
   return {
@@ -56,10 +69,7 @@ export async function getDefaultPublicApiKey(): Promise<PublicApiKey> {
 export async function createApiKey(
   data: CreateApiKeyRequest
 ): Promise<CreateApiKeyResponse> {
-  return apiFetch<CreateApiKeyResponse>(`${PREFIX}/create-key`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  return apiClient.post<CreateApiKeyResponse>(`${PREFIX}/keys`, data)
 }
 
 /**
@@ -68,8 +78,5 @@ export async function createApiKey(
 export async function deleteApiKey(
   data: DeleteApiKeyRequest
 ): Promise<DeleteApiKeyResponse> {
-  return apiFetch<DeleteApiKeyResponse>(`${PREFIX}/delete-key`, {
-    method: 'DELETE',
-    body: JSON.stringify(data),
-  })
+  return apiClient.deleteWithBody<DeleteApiKeyResponse>(`${PREFIX}/delete-key`, data)
 }

@@ -1,25 +1,38 @@
 'use client';
 
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { CallsListSidebar } from '@/components/calls/calls-list-sidebar';
+
 /**
  * Call Details Layout
  *
  * Overrides the default dashboard content wrapper to enable full-height
  * independent scrolling panels (Intercom-like experience).
  *
- * The parent dashboard layout applies:
- * - py-4 md:py-6 (vertical padding)
- * - px-4 lg:px-6 (horizontal padding)
- *
- * This layout:
- * - Counteracts only bottom padding to extend content area
- * - Keeps top padding from parent for proper spacing below header
- * - Constrains height to viewport minus header and top padding
- * - Enables children to manage their own scroll
+ * The sidebar is placed here (layout level) so it persists across call
+ * navigation without re-fetching data.
  */
 export default function CallDetailsLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Extract call ID from pathname (/inbox/{id})
+  const callId = pathname.split('/').pop() || '';
+
   return (
     <div className="-mb-4 md:-mb-6 h-[calc(100vh-var(--header-height)-1.5rem)] overflow-hidden">
-      {children}
+      <div className="flex h-full w-full overflow-hidden gap-4 p-4 px-6">
+        {/* Left Panel: Calls List Sidebar - persists across navigations */}
+        <CallsListSidebar
+          currentCallId={callId}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((prev) => !prev)}
+        />
+
+        {/* Main Content Area */}
+        {children}
+      </div>
     </div>
   );
 }

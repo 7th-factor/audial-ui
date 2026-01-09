@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -15,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { getMockCalls, type MockCall } from '@/lib/mock-data/calls';
+import { useCalls } from '@/lib/api/hooks/use-calls';
+import type { Call } from '@/lib/api/types';
 
 // Minimal call data needed for sidebar display
 export interface SidebarCallItem {
@@ -32,8 +32,6 @@ interface CallsListSidebarProps {
   currentCallId: string;
   isOpen: boolean;
   onToggle: () => void;
-  /** If true, sidebar has filter context from URL and should auto-fetch */
-  hasFilterContext: boolean;
 }
 
 /**
@@ -53,17 +51,46 @@ export function hasActiveFilters(searchParams: URLSearchParams): boolean {
 }
 
 /**
- * Transform mock call data to sidebar display format
+ * Format duration in seconds to mm:ss string
  */
-function transformCallToSidebarItem(call: MockCall): SidebarCallItem {
+function formatDuration(seconds: number | null): string {
+  if (seconds === null || seconds === undefined) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Get direction from call type
+ */
+function getDirection(type: Call['type']): 'inbound' | 'outbound' {
+  return type === 'inboundPhoneCall' ? 'inbound' : 'outbound';
+}
+
+/**
+ * Get customer display name from call
+ */
+function getCustomerName(call: Call): string {
+  if (!call.customer) return 'Unknown';
+  const { first_name, last_name, phone_number } = call.customer;
+  if (first_name || last_name) {
+    return [first_name, last_name].filter(Boolean).join(' ');
+  }
+  return phone_number || 'Unknown';
+}
+
+/**
+ * Transform API call data to sidebar display format
+ */
+function transformCallToSidebarItem(call: Call): SidebarCallItem {
   return {
     id: call.id,
-    customerName: call.customerName || 'Unknown',
-    agentName: call.assistantName || call.agentName || 'Agent',
-    direction: call.direction === 'outbound' ? 'outbound' : 'inbound',
-    duration: call.duration,
-    score: call.overallScore,
-    startTime: call.startTime || call.date || new Date().toISOString(),
+    customerName: getCustomerName(call),
+    agentName: 'Agent', // Agent name not available in list view
+    direction: getDirection(call.type),
+    duration: formatDuration(call.durationSecs),
+    score: undefined, // Score not available in list view
+    startTime: call.startedAt || call.createdAt,
   };
 }
 
@@ -74,16 +101,12 @@ export function CallsListSidebar({
   currentCallId,
   isOpen,
   onToggle,
-  hasFilterContext,
 }: CallsListSidebarProps) {
-  const searchParams = useSearchParams();
-  
-  // Use mock data instead of API
-  const callsData = getMockCalls();
-  const isLoading = false;
+  // Fetch calls from API
+  const { data: callsData, isLoading } = useCalls();
 
   // Transform calls to sidebar format
-  const calls: SidebarCallItem[] = callsData.map(transformCallToSidebarItem);
+  const calls: SidebarCallItem[] = (callsData ?? []).map(transformCallToSidebarItem);
 
   // Build the "View All" link
   const viewAllHref = '/inbox';
@@ -252,4 +275,5 @@ export function CallsListSidebar({
     </div>
   );
 }
+
 

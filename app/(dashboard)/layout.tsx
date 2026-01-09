@@ -1,6 +1,9 @@
 import type React from "react"
+import { Suspense } from "react"
 import { AuthGuard } from "@/lib/auth/auth-guard"
+import { WorkspaceGuard } from "@/lib/auth/workspace-guard"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { DashboardLoading } from "./loading"
 
 export default function DashboardLayout({
   children,
@@ -9,7 +12,13 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <DashboardShell>{children}</DashboardShell>
+      <WorkspaceGuard>
+        <DashboardShell>
+          <Suspense fallback={<DashboardLoading />}>
+            {children}
+          </Suspense>
+        </DashboardShell>
+      </WorkspaceGuard>
     </AuthGuard>
   )
 }

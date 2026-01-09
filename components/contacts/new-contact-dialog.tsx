@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { useCreateCustomer } from "@/lib/api/hooks/use-customers"
 
 const newContactSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -41,7 +41,7 @@ interface NewContactDialogProps {
 }
 
 export function NewContactDialog({ open, onOpenChange, onSuccess }: NewContactDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
+  const createCustomer = useCreateCustomer()
 
   const form = useForm<NewContactFormValues>({
     resolver: zodResolver(newContactSchema),
@@ -53,24 +53,30 @@ export function NewContactDialog({ open, onOpenChange, onSuccess }: NewContactDi
   })
 
   const handleSubmit = async (values: NewContactFormValues) => {
-    try {
-      setIsLoading(true)
+    // Split name into firstName and lastName
+    const nameParts = values.name.trim().split(/\s+/)
+    const firstName = nameParts[0]
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined
 
-      // TODO: Call API to create contact
-      console.log("Creating contact:", values)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      toast.success("Contact created successfully")
-      form.reset()
-      onOpenChange(false)
-      onSuccess?.(values)
-    } catch (error) {
-      toast.error("Failed to create contact. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
+    createCustomer.mutate(
+      {
+        firstName,
+        lastName,
+        email: values.email,
+        customAttributes: values.company ? { company: values.company } : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Contact created successfully")
+          form.reset()
+          onOpenChange(false)
+          onSuccess?.(values)
+        },
+        onError: () => {
+          toast.error("Failed to create contact. Please try again.")
+        },
+      }
+    )
   }
 
   return (
@@ -132,12 +138,12 @@ export function NewContactDialog({ open, onOpenChange, onSuccess }: NewContactDi
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isLoading}
+                disabled={createCustomer.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={createCustomer.isPending}>
+                {createCustomer.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create
               </Button>
             </DialogFooter>

@@ -16,6 +16,7 @@ import { IntegrationSearch } from '@/components/integrations/integration-search'
 
 import { getCategoriesInOrder, getIntegrationCount } from '@/lib/data/integrations-metadata';
 import { useIntegrationStore } from '@/lib/stores/integration-store';
+import { useCredentials } from '@/lib/api';
 import type { IntegrationWithState, IntegrationCategory } from '@/lib/integrations/types';
 
 export default function IntegrationsPage() {
@@ -27,9 +28,47 @@ export default function IntegrationsPage() {
     integration: IntegrationWithState | null;
   }>({ open: false, integration: null });
 
-  // Zustand store
+  // Zustand store for local state
   const { getIntegrationsWithState, toggleIntegration: toggleInStore } = useIntegrationStore();
-  const integrations = getIntegrationsWithState();
+  const localIntegrations = getIntegrationsWithState();
+
+  // Fetch real credentials from API
+  const { data: credentials } = useCredentials();
+
+  // Map credential providers to integration IDs
+  const credentialProviderToIntegrationId: Record<string, string> = {
+    openai: 'openai',
+    deepgram: 'deepgram',
+    elevenlabs: 'elevenlabs',
+    langfuse: 'langfuse',
+  };
+
+  // Merge local state with real credential status
+  const integrations = useMemo(() => {
+    // Handle different API response formats
+    const credentialsList = Array.isArray(credentials)
+      ? credentials
+      : (credentials as unknown as { data?: typeof credentials })?.data ?? [];
+
+    return localIntegrations.map((integration) => {
+      // Check if this integration has a real credential
+      const hasCredential = credentialsList.some((cred) => {
+        const mappedId = credentialProviderToIntegrationId[cred.provider];
+        return mappedId === integration.id;
+      });
+
+      // If there's a real credential, mark as connected
+      if (hasCredential) {
+        return {
+          ...integration,
+          isConnected: true,
+          isActive: integration.isActive ?? true,
+        };
+      }
+
+      return integration;
+    });
+  }, [localIntegrations, credentials]);
 
   // Categories for display
   const categories = getCategoriesInOrder();

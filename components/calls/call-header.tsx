@@ -25,11 +25,11 @@ import {
   ExternalLink,
   Trash2,
 } from 'lucide-react';
-import type { MockCall } from '@/lib/mock-data/calls';
+import type { CallDisplayData } from './types';
 import { cn } from '@/lib/utils';
 
 interface CallHeaderProps {
-  call: MockCall | null | undefined;
+  call: CallDisplayData | null | undefined;
   isLoading?: boolean;
   onToggleSidebar?: () => void;
   isSidebarOpen?: boolean;

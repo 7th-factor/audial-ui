@@ -5,71 +5,88 @@ import { IconUsers } from "@tabler/icons-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "@/components/data-table/data-table"
 import { columns } from "@/components/data-table/contacts/columns"
-import { statuses, tags } from "@/components/data-table/contacts/data"
 import { BulkActions, useContactBulkActions } from "@/components/bulk-actions"
 import { NewContactDialog } from "@/components/contacts"
-import type { Contact } from "@/components/data-table/contacts/schema"
+import { useCustomers, type Customer } from "@/lib/api"
 
-const contacts: Contact[] = [
-  {
-    id: "CON-001",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@acme.com",
-    company: "Acme Corp",
-    role: "Marketing Director",
-    status: "active",
-    tags: ["customer", "enterprise"],
-    lastContact: "2024-01-15",
-  },
-  {
-    id: "CON-002",
-    name: "Michael Chen",
-    email: "m.chen@techcorp.io",
-    company: "TechCorp",
-    role: "CTO",
-    status: "vip",
-    tags: ["partner", "enterprise"],
-    lastContact: "2024-01-14",
-  },
-  {
-    id: "CON-003",
-    name: "Emily Davis",
-    email: "emily.d@startup.co",
-    company: "StartupCo",
-    role: "Founder",
-    status: "active",
-    tags: ["lead"],
-    lastContact: "2024-01-13",
-  },
-  {
-    id: "CON-004",
-    name: "John Smith",
-    email: "john.smith@bigco.com",
-    company: "BigCo Inc",
-    role: "Sales Manager",
-    status: "inactive",
-    tags: ["customer"],
-    lastContact: "2023-12-20",
-  },
-  {
-    id: "CON-005",
-    name: "Lisa Wong",
-    email: "lisa.wong@ventures.vc",
-    company: "Ventures VC",
-    role: "Partner",
-    status: "active",
-    tags: ["partner"],
-    lastContact: "2024-01-10",
-  },
-]
+// Skeleton row for contacts table
+function ContactTableRowSkeleton() {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 border-b">
+      <Skeleton className="h-4 w-4 rounded" />
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <div className="space-y-1.5 min-w-[150px]">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <Skeleton className="h-4 w-36" />
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-8 w-8 ml-auto" />
+    </div>
+  )
+}
+
+// Full contacts page skeleton
+function ContactsSkeleton() {
+  return (
+    <PageLayout
+      title="Contacts"
+      description="Manage your contacts and relationships."
+      icon={IconUsers}
+      actions={
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-28" />
+        </div>
+      }
+    >
+      <div className="px-4 lg:px-6 space-y-4">
+        {/* Toolbar skeleton */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Skeleton className="h-9 w-64" />
+          </div>
+          <Skeleton className="h-9 w-24" />
+        </div>
+
+        {/* Table skeleton */}
+        <div className="rounded-lg border">
+          <div className="flex items-center gap-4 px-4 py-3 border-b bg-muted/50">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ContactTableRowSkeleton key={i} />
+          ))}
+        </div>
+
+        {/* Pagination skeleton */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+          </div>
+        </div>
+      </div>
+    </PageLayout>
+  )
+}
 
 export default function ContactsPage() {
-  const [selectedRows, setSelectedRows] = React.useState<Contact[]>([])
+  const { data: customers = [], isLoading, error } = useCustomers()
+  const [selectedRows, setSelectedRows] = React.useState<Customer[]>([])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
 
-  const handleBulkAction = React.useCallback((action: string, rows: Contact[]) => {
+  const handleBulkAction = React.useCallback((action: string, rows: Customer[]) => {
     console.log(`Bulk action: ${action}`, rows)
     setSelectedRows([])
   }, [])
@@ -87,13 +104,27 @@ export default function ContactsPage() {
     </div>
   )
 
-  const facetedFilters = React.useMemo(
-    () => [
-      { columnId: "status", title: "Status", options: statuses },
-      { columnId: "tags", title: "Tags", options: tags },
-    ],
-    [],
-  )
+  if (isLoading) {
+    return <ContactsSkeleton />
+  }
+
+  if (error) {
+    return (
+      <PageLayout
+        title="Contacts"
+        description="Manage your contacts and relationships."
+        icon={IconUsers}
+        actions={headerActions}
+      >
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-destructive mb-2">Failed to load contacts</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : "An error occurred"}
+          </p>
+        </div>
+      </PageLayout>
+    )
+  }
 
   return (
     <>
@@ -106,11 +137,10 @@ export default function ContactsPage() {
         <div className="px-4 lg:px-6">
           <DataTable
             columns={columns}
-            data={contacts}
-            onSelectionChange={(rows) => setSelectedRows(rows as Contact[])}
-            searchColumnId="name"
+            data={customers}
+            onSelectionChange={(rows) => setSelectedRows(rows as Customer[])}
+            searchColumnId="firstName"
             searchPlaceholder="Filter contacts..."
-            facetedFilters={facetedFilters}
             emptyState={{
               icon: IconUsers,
               title: "No contacts",

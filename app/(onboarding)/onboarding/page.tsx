@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
+import { workspaceManager } from "@/lib/auth/workspace-manager"
+import { agentsService, type CreateAgentInput } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   OnboardingStepper,
@@ -21,7 +23,35 @@ import type {
   PhoneNumberFormValues,
   OnboardingData,
 } from "@/lib/validations/onboarding"
-import { mockPhoneNumbers, countryOptions } from "@/lib/validations/onboarding"
+import { countryOptions, agentOptions } from "@/lib/validations/onboarding"
+
+// Agent templates for creating agents during onboarding
+const agentTemplates: Record<string, Partial<CreateAgentInput>> = {
+  sarah: {
+    name: "Sarah",
+    prompt: "You are Sarah, a friendly and professional AI receptionist. Your role is to greet callers warmly, understand their needs, and help schedule appointments or direct them to the right department. Be helpful, patient, and always maintain a positive tone.",
+    model: { provider: "openai", model: "gpt-4o-mini" },
+    voice: { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+  },
+  charlie: {
+    name: "Charlie",
+    prompt: "You are Charlie, an expert lead qualification specialist. Your role is to engage with potential customers, understand their needs and budget, qualify leads based on criteria, and gather important information for the sales team. Be professional, inquisitive, and thorough.",
+    model: { provider: "openai", model: "gpt-4o-mini" },
+    voice: { provider: "elevenlabs", voiceId: "IKne3meq5aSn9XLyUdCD" },
+  },
+  kate: {
+    name: "Kate",
+    prompt: "You are Kate, a skilled sales representative and e-commerce support specialist. Your role is to help customers find the right products, answer questions about features and pricing, handle objections gracefully, and guide customers through the purchase process. Be enthusiastic, knowledgeable, and helpful.",
+    model: { provider: "openai", model: "gpt-4o-mini" },
+    voice: { provider: "elevenlabs", voiceId: "jBpfuIE2acCO8z3wKNLl" },
+  },
+  other: {
+    name: "AI Assistant",
+    prompt: "You are a helpful AI assistant. Be professional, clear, and helpful in all interactions.",
+    model: { provider: "openai", model: "gpt-4o-mini" },
+    voice: { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+  },
+}
 
 const steps: Step[] = [
   { id: 1, label: "Business Info" },
@@ -70,8 +100,32 @@ export default function OnboardingPage() {
     setCurrentStep(2)
   }
 
-  const handleAgentSelectionNext = (agentSelection: AgentSelectionFormValues) => {
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false)
+  const [workspaceCreated, setWorkspaceCreated] = useState(false)
+
+  const handleAgentSelectionNext = async (agentSelection: AgentSelectionFormValues) => {
     setData((prev) => ({ ...prev, agentSelection }))
+
+    // Create workspace before phone number step (needed for API calls)
+    if (!workspaceCreated && data.businessInfo) {
+      setIsCreatingWorkspace(true)
+      try {
+        console.log("Creating workspace:", data.businessInfo.businessName)
+        await workspaceManager.createWorkspace({
+          name: data.businessInfo.businessName,
+          description: data.businessInfo.description,
+        })
+        setWorkspaceCreated(true)
+        console.log("Workspace created successfully")
+      } catch (error) {
+        console.error("Failed to create workspace:", error)
+        toast.error("Failed to create workspace. Please try again.")
+        setIsCreatingWorkspace(false)
+        return // Don't proceed to next step
+      }
+      setIsCreatingWorkspace(false)
+    }
+
     setCurrentStep(3)
   }
 
@@ -115,21 +169,55 @@ export default function OnboardingPage() {
     setCurrentStep(4) // Go back to plan selection
   }
 
-  const handleOnboardingComplete = (finalData: OnboardingData) => {
-    // TODO: Send data to API
-    console.log("Onboarding complete:", finalData)
-    toast.success("Onboarding complete! Welcome to Audial.")
-    router.push("/")
+  const handleOnboardingComplete = async (finalData: OnboardingData) => {
+    try {
+      // Create workspace if not already created (happens when phone step is skipped)
+      if (!workspaceCreated) {
+        console.log("Creating workspace:", finalData.businessInfo.businessName)
+        await workspaceManager.createWorkspace({
+          name: finalData.businessInfo.businessName,
+          description: finalData.businessInfo.description,
+        })
+        setWorkspaceCreated(true)
+      }
+
+      // Create agent from selected template
+      const selectedAgentId = finalData.agentSelection.agentId
+      const template = agentTemplates[selectedAgentId] || agentTemplates.other
+
+      console.log("Creating agent:", template.name)
+      try {
+        const agentInput: CreateAgentInput = {
+          name: template.name || "AI Assistant",
+          languageCode: "en",
+          prompt: template.prompt || "You are a helpful AI assistant.",
+          model: template.model || { provider: "openai", model: "gpt-4o-mini" },
+          voice: template.voice || { provider: "elevenlabs", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+        }
+        await agentsService.create(agentInput)
+        console.log("Agent created successfully")
+      } catch (agentError) {
+        console.error("Failed to create agent:", agentError)
+        // Don't fail onboarding if agent creation fails - user can create later
+        toast.warning("Workspace created, but agent setup failed. You can create an agent later.")
+      }
+
+      console.log("Onboarding complete:", finalData)
+      toast.success("Onboarding complete! Welcome to Audial.")
+      router.push("/")
+    } catch (error) {
+      console.error("Failed to create workspace:", error)
+      toast.error("Failed to create workspace. Please try again.")
+    }
   }
 
   // Get selected phone info for payment step
   const getSelectedPhoneInfo = () => {
-    const phoneId = data.phoneNumber?.phoneNumber
-    const phone = mockPhoneNumbers.find((p) => p.id === phoneId)
+    const phoneNumber = data.phoneNumber?.phoneNumber
     const country = countryOptions.find((c) => c.value === data.phoneNumber?.country)
-    if (phone) {
+    if (phoneNumber) {
       return {
-        number: phone.number,
+        number: phoneNumber,
         flag: country?.flag ?? "🇺🇸",
       }
     }
@@ -164,6 +252,7 @@ export default function OnboardingPage() {
               defaultValues={data.agentSelection}
               onNext={handleAgentSelectionNext}
               onBack={handleBack}
+              isLoading={isCreatingWorkspace}
             />
           )}
           {currentStep === 3 && (

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Suspense, useState, useMemo, use } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   FileText,
   Phone,
@@ -9,11 +8,12 @@ import {
   GraduationCap,
   ListTodo,
   TrendingUp,
-  RefreshCw,
   BarChart3,
 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { getMockCall, type MockCall } from '@/lib/mock-data/calls';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useCall, type CallDetail } from '@/lib/api';
+import type { CallDisplayData } from '@/components/calls/types';
 import { CallTranscriptView } from '@/components/calls/call-transcript';
 import {
   CallSidebar,
@@ -24,14 +24,176 @@ import {
   ActionItemsWidget,
   UpsellWidget,
 } from '@/components/calls/call-sidebar';
-import { CallsListSidebar, hasActiveFilters } from '@/components/calls/calls-list-sidebar';
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
 
-// Inner component that uses useSearchParams
-function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id: string } }) {
-  const searchParams = useSearchParams();
+// Skeleton for transcript message bubble
+function TranscriptMessageSkeleton({ isAgent = false }: { isAgent?: boolean }) {
+  return (
+    <div className={`flex gap-3 ${isAgent ? 'flex-row-reverse' : ''}`}>
+      <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+      <div className={`space-y-2 ${isAgent ? 'items-end' : ''}`}>
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className={`h-16 ${isAgent ? 'w-64' : 'w-72'} rounded-lg`} />
+      </div>
+    </div>
+  );
+}
 
+// Skeleton for sidebar widget section
+function SidebarWidgetSkeleton({ expanded = false }: { expanded?: boolean }) {
+  return (
+    <div className="border-b">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-4 w-4" />
+      </div>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Full call details skeleton
+function CallDetailsSkeleton() {
+  return (
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+      {/* Header skeleton */}
+      <div className="p-4 mb-4 space-y-4 bg-muted/50 rounded-lg border shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Avatars */}
+            <div className="flex -space-x-2">
+              <Skeleton className="h-10 w-10 rounded-full border-2 border-background" />
+              <Skeleton className="h-10 w-10 rounded-full border-2 border-background" />
+            </div>
+            {/* Title and metadata */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-8 w-8" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content area skeleton */}
+      <div className="flex flex-1 min-h-0 overflow-hidden gap-4">
+        {/* Transcript panel skeleton */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Audio player skeleton */}
+          <div className="p-4 border rounded-lg mb-4 space-y-3">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-2 w-full rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-10" />
+                  <Skeleton className="h-3 w-10" />
+                </div>
+              </div>
+              <Skeleton className="h-8 w-8" />
+            </div>
+          </div>
+
+          {/* Transcript messages skeleton */}
+          <div className="flex-1 overflow-hidden border rounded-lg">
+            <div className="p-4 space-y-6">
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right sidebar skeleton */}
+        <div className="w-80 flex-shrink-0 border rounded-lg overflow-hidden">
+          <SidebarWidgetSkeleton expanded={true} />
+          <SidebarWidgetSkeleton expanded={true} />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Transform API CallDetail to CallDisplayData format for UI components
+function transformCallDetailToDisplayData(call: CallDetail): CallDisplayData {
+  const customerName = call.customer
+    ? [call.customer.first_name, call.customer.last_name].filter(Boolean).join(' ') || 'Unknown'
+    : 'Unknown';
+
+  const durationMins = call.durationSecs ? Math.floor(call.durationSecs / 60) : 0;
+  const durationSecs = call.durationSecs ? call.durationSecs % 60 : 0;
+  const duration = `${durationMins}:${durationSecs.toString().padStart(2, '0')}`;
+
+  return {
+    id: call.id,
+    callId: `#${call.id.slice(0, 8).toUpperCase()}`,
+    agent: call.agentSettings?.name || 'AI Assistant',
+    customer: call.customerPhone || call.customer?.phone_number || 'Unknown',
+    duration,
+    score: '0',
+    date: call.createdAt,
+    category: 'support',
+    source: call.agentPhone?.provider as CallDisplayData['source'] || 'Unknown',
+    origin: 'real',
+    assistantName: call.agentSettings?.name || 'AI Assistant',
+    agentName: call.agentSettings?.name || 'AI Assistant',
+    customerName,
+    customerPhone: call.customerPhone || call.customer?.phone_number || undefined,
+    direction: call.type === 'inboundPhoneCall' ? 'inbound' : 'outbound',
+    status: call.status,
+    startTime: call.startedAt || call.createdAt,
+    recordingUrl: call.audioUrl || undefined,
+    transcript: call.messages?.length ? {
+      segments: call.messages.map((msg, idx) => ({
+        text: msg.content,
+        startTime: msg.start_time,
+        endTime: msg.end_time,
+        speaker: {
+          id: msg.sender === 'assistant' ? 'agent' : 'user',
+          name: msg.sender === 'assistant' ? (call.agentSettings?.name || 'AI Assistant') : customerName,
+        },
+      })),
+    } : undefined,
+    summary: call.analysis ? {
+      callSummary: call.analysis.summary,
+      keywords: call.analysis.keywords,
+    } : undefined,
+  };
+}
+
+// Inner component that handles call details
+function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   // Handle both Promise and direct params for Next.js 16 compatibility
   const paramsPromise =
     'then' in params && typeof params.then === 'function'
@@ -45,13 +207,14 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   const [isPlaying, setIsPlaying] = useState(false);
   const audioControlRef = React.useRef<{ pause: () => void } | null>(null);
 
-  // Sidebar toggle state
-  const hasFilterContext = useMemo(() => hasActiveFilters(searchParams), [searchParams]);
-  const [callsListSidebarOpen, setCallsListSidebarOpen] = useState(true);
+  // Fetch call data from API
+  const { data: apiCallData, isLoading, error } = useCall(callId);
 
-  // Get mock call data
-  const callData = getMockCall(callId);
-  const isLoading = false;
+  // Transform API data to CallDisplayData format for UI components
+  const callData = useMemo(() => {
+    if (!apiCallData) return null;
+    return transformCallDetailToDisplayData(apiCallData);
+  }, [apiCallData]);
 
   // Calculate duration from transcript segments if not in call data
   const calculatedDuration = useMemo(() => {
@@ -166,14 +329,19 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
     [callData, isLoading, calculatedDuration]
   );
 
-  // Call not found state
-  if (!callData) {
+  // Loading state
+  if (isLoading) {
+    return <CallDetailsSkeleton />;
+  }
+
+  // Error or not found state
+  if (error || !callData) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h3 className="text-lg font-semibold">Call Not Found</h3>
           <p className="text-sm text-muted-foreground">
-            The call you&apos;re looking for doesn&apos;t exist.
+            {error instanceof Error ? error.message : "The call you're looking for doesn't exist."}
           </p>
         </div>
       </div>
@@ -181,60 +349,47 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden gap-4 p-4 px-6">
-      {/* Left Panel: Calls List Sidebar */}
-      <CallsListSidebar
-        currentCallId={callId}
-        isOpen={callsListSidebarOpen}
-        onToggle={() => setCallsListSidebarOpen((prev) => !prev)}
-        hasFilterContext={hasFilterContext}
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+      {/* Header */}
+      <CallHeader
+        call={callData}
+        isLoading={isLoading}
+        onRunAnalysis={() => {
+          // TODO: Implement run analysis
+          console.log('Run analysis for call:', callId);
+        }}
       />
 
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-        {/* Header */}
-        <CallHeader
-          call={callData}
-          isLoading={isLoading}
-          onToggleSidebar={() => setCallsListSidebarOpen((prev) => !prev)}
-          isSidebarOpen={callsListSidebarOpen}
-          onRunAnalysis={() => {
-            // TODO: Implement run analysis
-            console.log('Run analysis for call:', callId);
-          }}
-        />
+      {/* Resizable Panels: Transcript + Right Sidebar */}
+      <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 overflow-hidden">
+        {/* Transcript Panel */}
+        <ResizablePanel
+          defaultSize={70}
+          minSize={50}
+          className="flex flex-col min-w-0 min-h-0 overflow-hidden pr-2"
+        >
+          <div className="flex-1 min-h-0 max-h-full overflow-hidden">
+            <CallTranscriptView
+              callData={callData}
+              isLoading={isLoading}
+              currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
+              onPause={() => audioControlRef.current?.pause()}
+            />
+          </div>
+        </ResizablePanel>
 
-        {/* Resizable Panels: Transcript + Right Sidebar */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 overflow-hidden">
-          {/* Transcript Panel */}
-          <ResizablePanel
-            defaultSize={70}
-            minSize={50}
-            className="flex flex-col min-w-0 min-h-0 overflow-hidden pr-2"
-          >
-            <div className="flex-1 min-h-0 max-h-full overflow-hidden">
-              <CallTranscriptView
-                callData={callData}
-                isLoading={isLoading}
-                currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
-                onPause={() => audioControlRef.current?.pause()}
-              />
-            </div>
-          </ResizablePanel>
+        <ResizableHandle withHandle className="mx-2" />
 
-          <ResizableHandle withHandle className="mx-2" />
-
-          {/* Right Sidebar with Widgets */}
-          <ResizablePanel
-            defaultSize={30}
-            minSize={25}
-            maxSize={50}
-            className="min-w-0 min-h-0 overflow-hidden pl-2"
-          >
-            <CallSidebar widgets={sidebarWidgets} />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+        {/* Right Sidebar with Widgets */}
+        <ResizablePanel
+          defaultSize={30}
+          minSize={25}
+          maxSize={50}
+          className="min-w-0 min-h-0 overflow-hidden pl-2"
+        >
+          <CallSidebar widgets={sidebarWidgets} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
@@ -246,16 +401,8 @@ export default function CallDetailsPage({
   params: Promise<{ id: string }> | { id: string };
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-full">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
+    <Suspense fallback={<CallDetailsSkeleton />}>
       <CallDetailsContent params={params} />
     </Suspense>
   );
 }
-
-export const dynamic = 'force-dynamic';
