@@ -322,31 +322,26 @@ export default function AgentPage() {
       return
     }
 
-    // Load the widget script
-    const script = document.createElement("script")
-    script.type = "module"
-    script.src = "/widget/bundle.mjs" // Local development bundle
-    script.onload = () => {
-      if (window.audial) {
-        window.audial.loadWidget({
-          agentId: selectedAgentId,
-          apiKey: defaultApiKey.id,
-          baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
-          options: {
-            containerId: WIDGET_CONTAINER_ID,
-            previewMode: true,
-            defaultOpen: true,
-            debug: false,
-          },
-        })
+    let retryTimeout: NodeJS.Timeout | null = null
+    let cancelled = false
+
+    // Wait for the container to be rendered before loading the widget
+    const loadWidget = () => {
+      if (cancelled) return
+
+      const container = document.getElementById(WIDGET_CONTAINER_ID)
+      if (!container) {
+        // Container not ready yet, retry after a short delay
+        retryTimeout = setTimeout(loadWidget, 50)
+        return
       }
-    }
-    script.onerror = () => {
-      // Try production URL if local fails
-      const prodScript = document.createElement("script")
-      prodScript.type = "module"
-      prodScript.src = "https://app.audial.co/widget/bundle.mjs"
-      prodScript.onload = () => {
+
+      // Load the widget script
+      const script = document.createElement("script")
+      script.type = "module"
+      script.src = "/widget/bundle.mjs" // Local development bundle
+      script.onload = () => {
+        if (cancelled) return
         if (window.audial) {
           window.audial.loadWidget({
             agentId: selectedAgentId,
@@ -361,17 +356,50 @@ export default function AgentPage() {
           })
         }
       }
-      prodScript.onerror = () => {
-        toast.error("Failed to load widget preview")
+      script.onerror = () => {
+        if (cancelled) return
+        // Try production URL if local fails
+        const prodScript = document.createElement("script")
+        prodScript.type = "module"
+        prodScript.src = "https://app.audial.co/widget/bundle.mjs"
+        prodScript.onload = () => {
+          if (cancelled) return
+          if (window.audial) {
+            window.audial.loadWidget({
+              agentId: selectedAgentId,
+              apiKey: defaultApiKey.id,
+              baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+              options: {
+                containerId: WIDGET_CONTAINER_ID,
+                previewMode: true,
+                defaultOpen: true,
+                debug: false,
+              },
+            })
+          }
+        }
+        prodScript.onerror = () => {
+          toast.error("Failed to load widget preview")
+        }
+        widgetScriptRef.current = prodScript
+        document.body.appendChild(prodScript)
       }
-      widgetScriptRef.current = prodScript
-      document.body.appendChild(prodScript)
+
+      widgetScriptRef.current = script
+      document.body.appendChild(script)
     }
 
-    widgetScriptRef.current = script
-    document.body.appendChild(script)
+    // Use requestAnimationFrame to ensure DOM is painted before checking
+    const rafId = requestAnimationFrame(() => {
+      loadWidget()
+    })
 
-    return () => cleanupWidget()
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+      if (retryTimeout) clearTimeout(retryTimeout)
+      cleanupWidget()
+    }
   }, [widgetPreviewEnabled, selectedAgentId, defaultApiKey?.id, cleanupWidget])
 
   // Auto-select first agent when agents load
