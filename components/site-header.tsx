@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import {
-  IconBell,
   IconChevronDown,
   IconCreditCard,
   IconLogout,
@@ -80,16 +79,6 @@ export function SiteHeader({
               </Button>
             }
           />
-
-          <Separator orientation="vertical" className="h-6" />
-
-          <Button variant="ghost" size="icon" className="relative">
-            <IconBell className="size-5" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-              3
-            </span>
-            <span className="sr-only">Notifications</span>
-          </Button>
 
           <Separator orientation="vertical" className="h-6" />
 
