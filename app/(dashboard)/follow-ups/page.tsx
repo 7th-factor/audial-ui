@@ -42,11 +42,8 @@ export default function FollowUpsPage() {
   // Create a map of customer IDs to names for quick lookup
   const customerMap = React.useMemo(() => {
     if (!customers) return new Map<string, string>()
-    // Handle both array and paginated response formats
-    const customerList = Array.isArray(customers) ? customers : (customers as { data?: typeof customers })?.data || []
-    if (!Array.isArray(customerList)) return new Map<string, string>()
     return new Map(
-      customerList.map((c) => [
+      customers.map((c) => [
         c.id,
         [c.firstName, c.lastName].filter(Boolean).join(" ") ||
           c.phoneNumber ||

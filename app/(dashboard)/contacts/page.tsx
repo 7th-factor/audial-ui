@@ -13,19 +13,8 @@ import { NewContactDialog } from "@/components/contacts"
 import { useCustomers, type Customer } from "@/lib/api"
 
 export default function ContactsPage() {
-  const { data: customersResponse, isLoading, error } = useCustomers()
+  const { data: customers = [], isLoading, error } = useCustomers()
   const [selectedRows, setSelectedRows] = React.useState<Customer[]>([])
-
-  // Handle both array and paginated response formats
-  const customers = React.useMemo((): Customer[] => {
-    if (!customersResponse) return []
-    if (Array.isArray(customersResponse)) return customersResponse
-    const response = customersResponse as { data?: Customer[] }
-    if (response.data && Array.isArray(response.data)) {
-      return response.data
-    }
-    return []
-  }, [customersResponse])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   const handleBulkAction = React.useCallback((action: string, rows: Customer[]) => {

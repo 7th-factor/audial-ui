@@ -24,7 +24,6 @@ import {
   ActionItemsWidget,
   UpsellWidget,
 } from '@/components/calls/call-sidebar';
-import { CallsListSidebar } from '@/components/calls/calls-list-sidebar';
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
 
@@ -89,9 +88,6 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioControlRef = React.useRef<{ pause: () => void } | null>(null);
-
-  // Sidebar toggle state
-  const [callsListSidebarOpen, setCallsListSidebarOpen] = useState(true);
 
   // Fetch call data from API
   const { data: apiCallData, isLoading, error } = useCall(callId);
@@ -239,59 +235,47 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden gap-4 p-4 px-6">
-      {/* Left Panel: Calls List Sidebar */}
-      <CallsListSidebar
-        currentCallId={callId}
-        isOpen={callsListSidebarOpen}
-        onToggle={() => setCallsListSidebarOpen((prev) => !prev)}
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+      {/* Header */}
+      <CallHeader
+        call={callData}
+        isLoading={isLoading}
+        onRunAnalysis={() => {
+          // TODO: Implement run analysis
+          console.log('Run analysis for call:', callId);
+        }}
       />
 
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-        {/* Header */}
-        <CallHeader
-          call={callData}
-          isLoading={isLoading}
-          onToggleSidebar={() => setCallsListSidebarOpen((prev) => !prev)}
-          isSidebarOpen={callsListSidebarOpen}
-          onRunAnalysis={() => {
-            // TODO: Implement run analysis
-            console.log('Run analysis for call:', callId);
-          }}
-        />
+      {/* Resizable Panels: Transcript + Right Sidebar */}
+      <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 overflow-hidden">
+        {/* Transcript Panel */}
+        <ResizablePanel
+          defaultSize={70}
+          minSize={50}
+          className="flex flex-col min-w-0 min-h-0 overflow-hidden pr-2"
+        >
+          <div className="flex-1 min-h-0 max-h-full overflow-hidden">
+            <CallTranscriptView
+              callData={callData}
+              isLoading={isLoading}
+              currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
+              onPause={() => audioControlRef.current?.pause()}
+            />
+          </div>
+        </ResizablePanel>
 
-        {/* Resizable Panels: Transcript + Right Sidebar */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 overflow-hidden">
-          {/* Transcript Panel */}
-          <ResizablePanel
-            defaultSize={70}
-            minSize={50}
-            className="flex flex-col min-w-0 min-h-0 overflow-hidden pr-2"
-          >
-            <div className="flex-1 min-h-0 max-h-full overflow-hidden">
-              <CallTranscriptView
-                callData={callData}
-                isLoading={isLoading}
-                currentPlaybackTime={isPlaying ? currentPlaybackTime : undefined}
-                onPause={() => audioControlRef.current?.pause()}
-              />
-            </div>
-          </ResizablePanel>
+        <ResizableHandle withHandle className="mx-2" />
 
-          <ResizableHandle withHandle className="mx-2" />
-
-          {/* Right Sidebar with Widgets */}
-          <ResizablePanel
-            defaultSize={30}
-            minSize={25}
-            maxSize={50}
-            className="min-w-0 min-h-0 overflow-hidden pl-2"
-          >
-            <CallSidebar widgets={sidebarWidgets} />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+        {/* Right Sidebar with Widgets */}
+        <ResizablePanel
+          defaultSize={30}
+          minSize={25}
+          maxSize={50}
+          className="min-w-0 min-h-0 overflow-hidden pl-2"
+        >
+          <CallSidebar widgets={sidebarWidgets} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

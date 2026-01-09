@@ -32,7 +32,6 @@ import {
   type UpdateAgentInput,
   type Routing,
   type Tool,
-  type PhoneNumber,
 } from "@/lib/api"
 import { CallForwardingCard } from "@/components/agent/call-forwarding-card"
 import { ToolsSection } from "@/components/agent/tools/tools-section"
@@ -105,30 +104,12 @@ const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
 
 export default function AgentPage() {
   // API hooks
-  const { data: agentsResponse, isLoading: isLoadingAgents, error: agentsError } = useAgents()
-  // Normalize agents to always be an array (handles both array and paginated responses)
-  const agents = (() => {
-    if (!agentsResponse) return []
-    if (Array.isArray(agentsResponse)) return agentsResponse
-    // Handle paginated response { data: [...] }
-    const maybeData = (agentsResponse as unknown as { data?: unknown })?.data
-    if (Array.isArray(maybeData)) return maybeData as typeof agentsResponse
-    return []
-  })()
+  const { data: agents = [], isLoading: isLoadingAgents, error: agentsError } = useAgents()
   const createAgentMutation = useCreateAgent()
   const updateAgentMutation = useUpdateAgent()
 
   // Phone numbers
-  const { data: phoneNumbersResponse } = usePhoneNumbers()
-
-  // Normalize phone numbers to always be an array
-  const allPhoneNumbers = (() => {
-    if (!phoneNumbersResponse) return []
-    if (Array.isArray(phoneNumbersResponse)) return phoneNumbersResponse
-    const maybeData = (phoneNumbersResponse as unknown as { data?: PhoneNumber[] })?.data
-    if (Array.isArray(maybeData)) return maybeData
-    return []
-  })()
+  const { data: allPhoneNumbers = [] } = usePhoneNumbers()
 
   // Selected agent ID
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)

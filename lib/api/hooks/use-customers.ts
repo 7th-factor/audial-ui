@@ -18,7 +18,10 @@ const CUSTOMERS_KEY = ["customers"] as const;
 export function useCustomers() {
   return useQuery({
     queryKey: CUSTOMERS_KEY,
-    queryFn: customersService.list,
+    queryFn: async () => {
+      const response = await customersService.list();
+      return response.data;
+    },
   });
 }
 

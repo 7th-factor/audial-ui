@@ -4,6 +4,8 @@
  * Types for the Audial Voice API Agents resource.
  */
 
+import type { PaginatedResponse } from "./common";
+
 export type InterruptionSensitivity = "low" | "medium" | "high";
 
 export interface AgentModel {
@@ -129,3 +131,5 @@ export interface MCPTool {
 }
 
 export type Tool = MCPTool;
+
+export type ListAgentsResponse = PaginatedResponse<Agent>;

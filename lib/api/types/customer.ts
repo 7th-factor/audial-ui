@@ -4,6 +4,8 @@
  * Types for the Audial Voice API Customers resource.
  */
 
+import type { PaginatedResponse } from "./common";
+
 export interface Customer {
   id: string;
   firstName: string | null;
@@ -16,6 +18,8 @@ export interface Customer {
   conversationSummary: string | null;
   ongoingIssues: string[];
 }
+
+export type ListCustomersResponse = PaginatedResponse<Customer>;
 
 export interface CreateCustomerInput {
   firstName: string;

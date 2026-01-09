@@ -6,34 +6,18 @@
 
 import { apiClient } from "../client";
 import type {
-  Call,
   CallDetail,
   CreateCallInput,
   WebSocketRoom,
   CreateWebSocketRoomInput,
+  ListCallsResponse,
 } from "../types";
-
-// Paginated response from API
-interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    total_pages: number;
-    has_next: boolean;
-    has_previous: boolean;
-  };
-}
 
 export const callsService = {
   /**
    * Fetch all calls
    */
-  list: async (): Promise<Call[]> => {
-    const response = await apiClient.get<PaginatedResponse<Call>>("/api/v1/call");
-    return response.data;
-  },
+  list: () => apiClient.get<ListCallsResponse>("/api/v1/call"),
 
   /**
    * Fetch a single call by ID (includes full details like messages)

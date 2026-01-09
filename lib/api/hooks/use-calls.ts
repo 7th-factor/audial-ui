@@ -18,7 +18,10 @@ const CALLS_KEY = ["calls"] as const;
 export function useCalls() {
   return useQuery({
     queryKey: CALLS_KEY,
-    queryFn: callsService.list,
+    queryFn: async () => {
+      const response = await callsService.list();
+      return response.data;
+    },
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     refetchOnWindowFocus: false, // Don't refetch on tab focus
     placeholderData: keepPreviousData, // Show cached data while refetching

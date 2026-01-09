@@ -9,16 +9,18 @@ import type {
   PhoneNumber,
   CreatePhoneNumberInput,
   UpdatePhoneNumberInput,
-  AvailablePhoneNumber,
   PurchasePhoneNumberInput,
   PurchasedPhoneNumber,
+  ListPhoneNumbersResponse,
+  ListAvailablePhoneNumbersResponse,
+  ListPurchasedPhoneNumbersResponse,
 } from "../types";
 
 export const phoneNumbersService = {
   /**
    * Fetch all phone numbers
    */
-  list: () => apiClient.get<PhoneNumber[]>("/api/v1/phone-numbers"),
+  list: () => apiClient.get<ListPhoneNumbersResponse>("/api/v1/phone-numbers"),
 
   /**
    * Fetch a single phone number by ID
@@ -46,13 +48,13 @@ export const phoneNumbersService = {
    * Fetch available phone numbers for purchase
    */
   listAvailable: () =>
-    apiClient.get<AvailablePhoneNumber[]>("/api/v1/phone-numbers/available"),
+    apiClient.get<ListAvailablePhoneNumbersResponse>("/api/v1/phone-numbers/available"),
 
   /**
    * Fetch purchased (Audial-managed) phone numbers
    */
   listPurchased: () =>
-    apiClient.get<PurchasedPhoneNumber[]>(
+    apiClient.get<ListPurchasedPhoneNumbersResponse>(
       "/api/v1/phone-numbers?provider=audial"
     ),
 

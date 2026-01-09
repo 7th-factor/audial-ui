@@ -22,7 +22,10 @@ const PHONE_NUMBERS_KEY = ["phone-numbers"] as const;
 export function usePhoneNumbers() {
   return useQuery({
     queryKey: PHONE_NUMBERS_KEY,
-    queryFn: phoneNumbersService.list,
+    queryFn: async () => {
+      const response = await phoneNumbersService.list();
+      return response.data;
+    },
   });
 }
 
@@ -88,7 +91,10 @@ export function useDeletePhoneNumber() {
 export function useAvailablePhoneNumbers() {
   return useQuery({
     queryKey: [...PHONE_NUMBERS_KEY, "available"],
-    queryFn: phoneNumbersService.listAvailable,
+    queryFn: async () => {
+      const response = await phoneNumbersService.listAvailable();
+      return response.data;
+    },
   });
 }
 
@@ -98,7 +104,10 @@ export function useAvailablePhoneNumbers() {
 export function usePurchasedPhoneNumbers() {
   return useQuery({
     queryKey: [...PHONE_NUMBERS_KEY, "purchased"],
-    queryFn: phoneNumbersService.listPurchased,
+    queryFn: async () => {
+      const response = await phoneNumbersService.listPurchased();
+      return response.data;
+    },
   });
 }
 

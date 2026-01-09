@@ -5,6 +5,7 @@
  */
 
 import type { Agent } from "./agent";
+import type { PaginatedResponse } from "./common";
 
 export type CallStatus = "pending" | "in-progress" | "completed" | "failed";
 
@@ -150,3 +151,5 @@ export interface CreateWebSocketRoomInput {
   agentSettings?: CreateCallInput["agentSettings"];
   agentId?: string;
 }
+
+export type ListCallsResponse = PaginatedResponse<Call>;

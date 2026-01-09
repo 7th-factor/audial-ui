@@ -144,12 +144,8 @@ export default function PhoneNumbersPage() {
   const updateMutation = useUpdatePhoneNumber()
 
   const phoneNumbers = useMemo(() => {
-    // Handle different API response formats
     if (!phoneNumbersData) return []
-    const data = Array.isArray(phoneNumbersData)
-      ? phoneNumbersData
-      : (phoneNumbersData as unknown as { data?: PhoneNumber[] })?.data ?? []
-    return data.map(transformPhoneNumber)
+    return phoneNumbersData.map(transformPhoneNumber)
   }, [phoneNumbersData])
 
   const [filteredData, setFilteredData] = useState<
@@ -400,19 +396,13 @@ export default function PhoneNumbersPage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : (() => {
-            // Handle different API response formats for available numbers
-            if (!availableNumbersData) return null
-            const availableNumbers = Array.isArray(availableNumbersData)
-              ? availableNumbersData
-              : (availableNumbersData as unknown as { data?: AvailablePhoneNumber[] })?.data ?? []
-            return availableNumbers.length === 0 ? (
+          ) : !availableNumbersData || availableNumbersData.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
               No available numbers at this time. Please check back later.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {availableNumbers.map((number) => (
+              {availableNumbersData.map((number) => (
                 <AvailableNumberCard
                   key={number.phoneNumber}
                   number={number}
@@ -424,8 +414,7 @@ export default function PhoneNumbersPage() {
                 />
               ))}
             </div>
-          )
-          })()}
+          )}
         </TabsContent>
       </Tabs>
 

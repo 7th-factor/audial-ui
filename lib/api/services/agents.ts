@@ -5,13 +5,18 @@
  */
 
 import { apiClient } from "../client";
-import type { Agent, CreateAgentInput, UpdateAgentInput } from "../types";
+import type {
+  Agent,
+  CreateAgentInput,
+  UpdateAgentInput,
+  ListAgentsResponse,
+} from "../types";
 
 export const agentsService = {
   /**
    * Fetch all agents
    */
-  list: () => apiClient.get<Agent[]>("/api/v1/agents"),
+  list: () => apiClient.get<ListAgentsResponse>("/api/v1/agents"),
 
   /**
    * Fetch a single agent by ID

@@ -23,7 +23,10 @@ export function useAgents(filters?: AgentFilters) {
 
   return useQuery({
     queryKey: queryKeys.agents.list(filters),
-    queryFn: agentsService.list,
+    queryFn: async () => {
+      const response = await agentsService.list();
+      return response.data;
+    },
     enabled: isReady,
     staleTime: 60000, // 1 minute
   });

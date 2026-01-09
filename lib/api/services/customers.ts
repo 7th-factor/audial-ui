@@ -10,13 +10,14 @@ import type {
   CreateCustomerInput,
   UpdateCustomerInput,
   DeleteResponse,
+  ListCustomersResponse,
 } from "../types";
 
 export const customersService = {
   /**
    * Fetch all customers
    */
-  list: () => apiClient.get<Customer[]>("/api/v1/customers"),
+  list: () => apiClient.get<ListCustomersResponse>("/api/v1/customers"),
 
   /**
    * Fetch a single customer by ID

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2, Calendar } from "lucide-react"
@@ -43,7 +43,6 @@ import { cn } from "@/lib/utils"
 import { useCustomers } from "@/lib/api/hooks/use-customers"
 import { useCreateFollowUp } from "@/lib/features/follow-ups"
 import type { CreateFollowUpInput } from "@/lib/api/types/follow-up"
-import type { Customer } from "@/lib/api/types/customer"
 import {
   createFollowUpSchema,
   type CreateFollowUpFormInput,
@@ -62,23 +61,12 @@ export function NewFollowUpDialog({
   onOpenChange,
   onSuccess,
 }: NewFollowUpDialogProps) {
-  const { data: customersResponse, isLoading: customersLoading } = useCustomers()
+  const { data: customerList = [], isLoading: customersLoading } = useCustomers()
   const createFollowUp = useCreateFollowUp()
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [selectedHour, setSelectedHour] = useState<string>("12")
   const [selectedMinute, setSelectedMinute] = useState<string>("00")
   const [selectedPeriod, setSelectedPeriod] = useState<string>("PM")
-
-  // Handle both array and paginated response formats
-  const customerList = useMemo((): Customer[] => {
-    if (!customersResponse) return []
-    if (Array.isArray(customersResponse)) return customersResponse
-    const response = customersResponse as { data?: Customer[] }
-    if (response.data && Array.isArray(response.data)) {
-      return response.data
-    }
-    return []
-  }, [customersResponse])
 
   // Convert 12-hour time to 24-hour and create ISO string
   const getDateTimeISO = (date: Date, hour: string, minute: string, period: string) => {

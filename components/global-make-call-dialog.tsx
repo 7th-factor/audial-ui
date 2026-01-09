@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { IconPhone, IconPhoneCall, IconRobot } from "@tabler/icons-react"
 
@@ -43,24 +43,9 @@ export function GlobalMakeCallDialog({ trigger }: GlobalMakeCallDialogProps) {
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>("")
   const [customerName, setCustomerName] = useState("")
 
-  const { data: agentsData, isLoading: isLoadingAgents } = useAgents()
-  const { data: phoneNumbersData, isLoading: isLoadingPhoneNumbers } = usePhoneNumbers()
+  const { data: agents = [], isLoading: isLoadingAgents } = useAgents()
+  const { data: phoneNumbers = [], isLoading: isLoadingPhoneNumbers } = usePhoneNumbers()
   const createCallMutation = useCreateCallByAgentId()
-
-  // Normalize data with useMemo to maintain referential stability
-  const agents = useMemo<Agent[]>(() => {
-    if (!agentsData) return []
-    return Array.isArray(agentsData)
-      ? agentsData
-      : (agentsData as unknown as { data?: Agent[] })?.data ?? []
-  }, [agentsData])
-
-  const phoneNumbers = useMemo<PhoneNumber[]>(() => {
-    if (!phoneNumbersData) return []
-    return Array.isArray(phoneNumbersData)
-      ? phoneNumbersData
-      : (phoneNumbersData as unknown as { data?: PhoneNumber[] })?.data ?? []
-  }, [phoneNumbersData])
 
   // Compute effective selection - auto-select if only one option and user hasn't selected
   const effectiveAgentId = selectedAgentId || (agents.length === 1 ? agents[0].id : "")

@@ -4,6 +4,7 @@
  * Re-exports all API types for convenient importing.
  */
 
+export * from "./common";
 export * from "./agent";
 export * from "./call";
 export * from "./customer";

@@ -5,6 +5,7 @@
  */
 
 import type { Agent } from "./agent";
+import type { PaginatedResponse } from "./common";
 
 export type PhoneNumberProvider = "twilio" | "vonage" | "audial";
 
@@ -85,3 +86,8 @@ export interface PurchasedPhoneNumber {
   fallbackDestination: string | null;
   id: string;
 }
+
+// Paginated response types
+export type ListPhoneNumbersResponse = PaginatedResponse<PhoneNumber>;
+export type ListAvailablePhoneNumbersResponse = PaginatedResponse<AvailablePhoneNumber>;
+export type ListPurchasedPhoneNumbersResponse = PaginatedResponse<PurchasedPhoneNumber>;
