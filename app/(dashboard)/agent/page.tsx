@@ -20,6 +20,7 @@ import { Loader2 } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SaveStatusIndicator } from "@/components/save-status-indicator"
 import { useAutosave } from "@/lib/hooks/use-autosave"
 import {
@@ -61,6 +62,149 @@ import { WebWidgetForm } from "@/components/widget-config/web-widget-form"
 
 // Widget preview container ID
 const WIDGET_CONTAINER_ID = "audial-widget-preview-container"
+
+// Skeleton for a form field
+function FormFieldSkeleton({ wide = false }: { wide?: boolean }) {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className={`h-9 ${wide ? 'w-full' : 'w-48'}`} />
+    </div>
+  )
+}
+
+// Skeleton for a card with form fields
+function CardSkeleton({ fields = 3, title = true }: { fields?: number; title?: boolean }) {
+  return (
+    <Card>
+      {title && (
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+      )}
+      <CardContent className="space-y-4">
+        {Array.from({ length: fields }).map((_, i) => (
+          <FormFieldSkeleton key={i} wide />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Full Agent page skeleton
+function AgentPageSkeleton() {
+  return (
+    <PageLayout
+      title="Agent"
+      description="Configure and manage your AI agent settings."
+      icon={IconRobot}
+    >
+      <div className="px-4 lg:px-6">
+        <div className="w-full p-2 bg-muted rounded-lg">
+          {/* Tabs skeleton */}
+          <div className="flex items-center gap-2 mb-6">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+
+          {/* Tab content skeleton */}
+          <div className="space-y-4">
+            {/* Avatar Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="size-16 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Basic Info Card Skeleton */}
+            <CardSkeleton fields={3} />
+
+            {/* Phone Numbers Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-5" />
+                      <div>
+                        <Skeleton className="h-4 w-32 mb-1" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Model Config Card Skeleton */}
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-44" />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormFieldSkeleton wide />
+                <FormFieldSkeleton wide />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </PageLayout>
+  )
+}
+
+// Skeleton for agent content (when agent is selected but loading)
+function AgentContentSkeleton() {
+  return (
+    <div className="px-4 lg:px-6">
+      <div className="w-full p-2 bg-muted rounded-lg">
+        {/* Tabs skeleton */}
+        <div className="flex items-center gap-2 mb-6">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+
+        {/* Tab content skeleton - simplified */}
+        <div className="space-y-4">
+          <CardSkeleton fields={2} />
+          <CardSkeleton fields={3} />
+          <CardSkeleton fields={2} />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Agent template configurations for creation
 const agentTemplates: Record<string, Omit<CreateAgentInput, 'name'>> = {
@@ -410,17 +554,7 @@ export default function AgentPage() {
 
   // Loading state
   if (isLoadingAgents) {
-    return (
-      <PageLayout
-        title="Agent"
-        description="Configure and manage your AI agent settings."
-        icon={IconRobot}
-      >
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </PageLayout>
-    )
+    return <AgentPageSkeleton />
   }
 
   // Error state
@@ -569,9 +703,7 @@ export default function AgentPage() {
       actions={<SaveStatusIndicator status={status} lastSaved={lastSaved} />}
     >
       {isLoadingAgent ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <AgentContentSkeleton />
       ) : (
       <div className="px-4 lg:px-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full p-2 bg-muted">

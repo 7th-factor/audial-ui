@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
 import {
   IconPhone,
   IconMail,
@@ -21,7 +20,110 @@ import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/componen
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useCustomer } from "@/lib/api"
+
+// Skeleton for form field
+function FormFieldSkeleton() {
+  return (
+    <div className="space-y-1.5">
+      <Skeleton className="h-3 w-20" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+  )
+}
+
+// Full contact detail skeleton
+function ContactDetailSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {/* Contact Header Skeleton */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-12 rounded-full" />
+          <div>
+            <Skeleton className="h-5 w-32 mb-2" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-36" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          </div>
+        </div>
+        <Skeleton className="h-9 w-40" />
+      </div>
+
+      {/* Two Column Layout Skeleton */}
+      <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+        {/* Left Column - User Details & Attributes */}
+        <div className="flex flex-col gap-4">
+          {/* User Details Card Skeleton */}
+          <Card>
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-7 w-16" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <FormFieldSkeleton />
+              <FormFieldSkeleton />
+              <FormFieldSkeleton />
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-20" />
+                  <Skeleton className="h-9 flex-1" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attributes Card Skeleton */}
+          <Card>
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-7 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <FormFieldSkeleton />
+              <FormFieldSkeleton />
+              <FormFieldSkeleton />
+              <FormFieldSkeleton />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Summary & Activity Skeleton */}
+        <div>
+          <Skeleton className="h-5 w-36 mb-3" />
+          <div className="flex flex-col gap-3">
+            {/* Conversation Summary Card Skeleton */}
+            <Card>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-4/5" />
+              </CardContent>
+            </Card>
+
+            {/* Activity Card Skeleton */}
+            <Card>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-28" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function getConversationIcon(type: string) {
   switch (type) {
@@ -44,11 +146,7 @@ export default function ContactDetailPage() {
   const { data: customer, isLoading, error } = useCustomer(contactId)
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ContactDetailSkeleton />
   }
 
   if (error || !customer) {

@@ -8,10 +8,10 @@ import {
   GraduationCap,
   ListTodo,
   TrendingUp,
-  RefreshCw,
   BarChart3,
 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCall, type CallDetail } from '@/lib/api';
 import type { CallDisplayData } from '@/components/calls/types';
 import { CallTranscriptView } from '@/components/calls/call-transcript';
@@ -26,6 +26,124 @@ import {
 } from '@/components/calls/call-sidebar';
 import { CallHeader } from '@/components/calls/call-header';
 import { ScoreCardWidget } from '@/components/calls/scorecard-widget';
+
+// Skeleton for transcript message bubble
+function TranscriptMessageSkeleton({ isAgent = false }: { isAgent?: boolean }) {
+  return (
+    <div className={`flex gap-3 ${isAgent ? 'flex-row-reverse' : ''}`}>
+      <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+      <div className={`space-y-2 ${isAgent ? 'items-end' : ''}`}>
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className={`h-16 ${isAgent ? 'w-64' : 'w-72'} rounded-lg`} />
+      </div>
+    </div>
+  );
+}
+
+// Skeleton for sidebar widget section
+function SidebarWidgetSkeleton({ expanded = false }: { expanded?: boolean }) {
+  return (
+    <div className="border-b">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-4 w-4" />
+      </div>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Full call details skeleton
+function CallDetailsSkeleton() {
+  return (
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+      {/* Header skeleton */}
+      <div className="p-4 mb-4 space-y-4 bg-muted/50 rounded-lg border shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Avatars */}
+            <div className="flex -space-x-2">
+              <Skeleton className="h-10 w-10 rounded-full border-2 border-background" />
+              <Skeleton className="h-10 w-10 rounded-full border-2 border-background" />
+            </div>
+            {/* Title and metadata */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-8 w-8" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content area skeleton */}
+      <div className="flex flex-1 min-h-0 overflow-hidden gap-4">
+        {/* Transcript panel skeleton */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Audio player skeleton */}
+          <div className="p-4 border rounded-lg mb-4 space-y-3">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-2 w-full rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-10" />
+                  <Skeleton className="h-3 w-10" />
+                </div>
+              </div>
+              <Skeleton className="h-8 w-8" />
+            </div>
+          </div>
+
+          {/* Transcript messages skeleton */}
+          <div className="flex-1 overflow-hidden border rounded-lg">
+            <div className="p-4 space-y-6">
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+              <TranscriptMessageSkeleton isAgent={false} />
+              <TranscriptMessageSkeleton isAgent={true} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right sidebar skeleton */}
+        <div className="w-80 flex-shrink-0 border rounded-lg overflow-hidden">
+          <SidebarWidgetSkeleton expanded={true} />
+          <SidebarWidgetSkeleton expanded={true} />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+          <SidebarWidgetSkeleton />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Transform API CallDetail to CallDisplayData format for UI components
 function transformCallDetailToDisplayData(call: CallDetail): CallDisplayData {
@@ -213,11 +331,7 @@ function CallDetailsContent({ params }: { params: Promise<{ id: string }> | { id
 
   // Loading state
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <CallDetailsSkeleton />;
   }
 
   // Error or not found state
@@ -287,13 +401,7 @@ export default function CallDetailsPage({
   params: Promise<{ id: string }> | { id: string };
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-full">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
+    <Suspense fallback={<CallDetailsSkeleton />}>
       <CallDetailsContent params={params} />
     </Suspense>
   );

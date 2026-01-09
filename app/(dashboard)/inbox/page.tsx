@@ -12,13 +12,13 @@ import {
   IconApi,
   IconInbox,
 } from '@tabler/icons-react';
-import { Loader2 } from 'lucide-react';
 
 import { PageLayout } from '@/components/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DataTable } from '@/components/data-table/data-table';
 import { useCalls, useChats, type Call, type Chat } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -441,6 +441,94 @@ const chatFacetedFilters: FacetedFilterConfig[] = [
   },
 ];
 
+// Skeleton row component for table loading state
+function TableRowSkeleton() {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 border-b">
+      {/* Checkbox */}
+      <Skeleton className="h-4 w-4 rounded" />
+      {/* ID */}
+      <Skeleton className="h-4 w-16" />
+      {/* Customer with avatar */}
+      <div className="flex items-center gap-3 min-w-[220px]">
+        <Skeleton className="h-9 w-9 rounded-full" />
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </div>
+      {/* Type badge */}
+      <Skeleton className="h-6 w-24 rounded-full" />
+      {/* Status badge */}
+      <Skeleton className="h-6 w-20 rounded-full" />
+      {/* Duration */}
+      <Skeleton className="h-4 w-12" />
+      {/* Date */}
+      <Skeleton className="h-4 w-24" />
+      {/* Actions */}
+      <Skeleton className="h-8 w-16 ml-auto" />
+    </div>
+  );
+}
+
+// Full inbox skeleton component
+function InboxSkeleton() {
+  return (
+    <PageLayout
+      title="Inbox"
+      description="View and manage all customer interactions"
+      icon={IconInbox}
+    >
+      <div className="px-4 lg:px-6 space-y-6">
+        {/* Tabs skeleton */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+          <Skeleton className="h-8 w-28 rounded-md" />
+          <Skeleton className="h-8 w-28 rounded-md" />
+        </div>
+
+        {/* Toolbar skeleton (search + filters) */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+          <Skeleton className="h-9 w-24" />
+        </div>
+
+        {/* Table skeleton */}
+        <div className="rounded-lg border">
+          {/* Table header */}
+          <div className="flex items-center gap-4 px-4 py-3 border-b bg-muted/50">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-8" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+          {/* Table rows */}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </div>
+
+        {/* Pagination skeleton */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+          </div>
+        </div>
+      </div>
+    </PageLayout>
+  );
+}
+
 export default function InboxPage() {
   const { data: calls, isLoading: isLoadingCalls, error: callsError } = useCalls();
   const { data: chats, isLoading: isLoadingChats, error: chatsError } = useChats();
@@ -450,17 +538,7 @@ export default function InboxPage() {
   const chatCount = chats?.length || 0;
 
   if (isLoading) {
-    return (
-      <PageLayout
-        title="Inbox"
-        description="View and manage all customer interactions"
-        icon={IconInbox}
-      >
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </PageLayout>
-    );
+    return <InboxSkeleton />;
   }
 
   return (

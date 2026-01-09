@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   PhoneNumberCard,
@@ -128,6 +129,78 @@ function AvailableNumberCard({
             </>
           )}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// Skeleton for phone number card
+function PhoneNumberCardSkeleton() {
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-5 w-8 rounded" />
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-12 rounded-full" />
+        <Skeleton className="h-5 w-10 rounded-full" />
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-8 w-8" />
+      </div>
+    </div>
+  )
+}
+
+// Full Phone Numbers page skeleton
+function PhoneNumbersSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Section Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold">Phone Numbers</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage your phone numbers and availability.
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs Skeleton */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-9 w-40" />
+        </div>
+
+        {/* Search and Filters Skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+
+        {/* Phone Number Grid Skeleton */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <PhoneNumberCardSkeleton key={i} />
+          ))}
+        </div>
+
+        {/* Pagination Skeleton */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+            <Skeleton className="h-9 w-9" />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -273,21 +346,7 @@ export default function PhoneNumbersPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Phone Numbers</h2>
-            <p className="text-sm text-muted-foreground">
-              Manage your phone numbers and availability.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    )
+    return <PhoneNumbersSkeleton />
   }
 
   if (error) {

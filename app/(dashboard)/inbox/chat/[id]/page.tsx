@@ -9,12 +9,12 @@ import {
   IconUser,
   IconRobot,
 } from "@tabler/icons-react"
-import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useChat, type ChatMessage } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -31,6 +31,113 @@ function getStatusClass(status?: string): string {
     default:
       return ""
   }
+}
+
+// Skeleton for message bubble
+function MessageBubbleSkeleton({ isUser = false }: { isUser?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex gap-3 max-w-[80%]",
+        isUser ? "ml-auto flex-row-reverse" : ""
+      )}
+    >
+      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+      <div className="space-y-2">
+        <Skeleton className={cn("h-16 rounded-lg", isUser ? "w-56" : "w-64")} />
+        <Skeleton className="h-3 w-12" />
+      </div>
+    </div>
+  )
+}
+
+// Full chat detail page skeleton
+function ChatDetailSkeleton() {
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header Skeleton */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-9" />
+          <div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-36 mt-1" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-24 rounded-full" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Messages Skeleton */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <Skeleton className="h-5 w-28" />
+          </CardHeader>
+          <CardContent>
+            <div className="h-[500px] pr-4 space-y-4">
+              <MessageBubbleSkeleton isUser={false} />
+              <MessageBubbleSkeleton isUser={true} />
+              <MessageBubbleSkeleton isUser={false} />
+              <MessageBubbleSkeleton isUser={true} />
+              <MessageBubbleSkeleton isUser={false} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sidebar Skeleton */}
+        <div className="space-y-6">
+          {/* Customer Info Skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Skeleton className="h-3 w-12 mb-1" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <div>
+                <Skeleton className="h-3 w-12 mb-1" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+              <div>
+                <Skeleton className="h-3 w-12 mb-1" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Chat Info Skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-16" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <div>
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <div>
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-36" />
+              </div>
+              <div>
+                <Skeleton className="h-3 w-16 mb-1" />
+                <Skeleton className="h-4 w-36" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function MessageBubble({ message }: { message: ChatMessage }) {
@@ -89,11 +196,7 @@ export default function ChatDetailPage({
   const { data: chat, isLoading, error } = useChat(id)
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ChatDetailSkeleton />
   }
 
   if (error || !chat) {
