@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   IconRobot,
   IconSettings,
@@ -271,7 +272,11 @@ export default function AgentPage() {
 
   // Widget preview state - always enabled when on widget tab
   const { data: defaultApiKey } = useDefaultPublicApiKey()
-  const [activeTab, setActiveTab] = useState("general")
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get("tab")
+  const validTabs = ["general", "voice", "rules", "tools", "widget"]
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "general"
+  const [activeTab, setActiveTab] = useState(initialTab)
   const widgetScriptRef = React.useRef<HTMLScriptElement | null>(null)
 
   // Load/unload widget preview when on widget tab

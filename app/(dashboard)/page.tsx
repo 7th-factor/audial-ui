@@ -216,6 +216,9 @@ export default function GetStartedPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleActionClick = (action: ActionMetadata) => {
+    if (action.disabled) {
+      return; // Don't navigate for disabled actions
+    }
     if (action.external) {
       window.open(action.href, "_blank");
     } else {
@@ -323,21 +326,34 @@ export default function GetStartedPage() {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 px-1">
                   {category.actions.map((action) => {
                     const ActionIcon = action.icon;
+                    const isDisabled = action.disabled;
                     return (
                       <div
                         key={action.id}
-                        className="relative flex items-start gap-4 rounded-xl border bg-background p-6 shadow-sm transition hover:shadow-md cursor-pointer"
+                        className={cn(
+                          "relative flex items-start gap-4 rounded-xl border bg-background p-6 shadow-sm transition",
+                          isDisabled
+                            ? "opacity-60 cursor-not-allowed"
+                            : "hover:shadow-md cursor-pointer"
+                        )}
                         onClick={() => handleActionClick(action)}
                       >
-                        {/* Floating Badge */}
-                        {action.badge && (
+                        {/* Floating Badge - Coming Soon or regular */}
+                        {action.comingSoon ? (
+                          <Badge
+                            variant="outline"
+                            className="absolute -top-2 -right-2 text-xs shadow-sm bg-muted"
+                          >
+                            Coming Soon
+                          </Badge>
+                        ) : action.badge ? (
                           <Badge
                             variant="secondary"
                             className="absolute -top-2 -right-2 text-xs shadow-sm"
                           >
                             {action.badge}
                           </Badge>
-                        )}
+                        ) : null}
 
                         {/* Icon with Gradient */}
                         <span

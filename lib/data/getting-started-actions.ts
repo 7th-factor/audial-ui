@@ -34,6 +34,8 @@ export interface ActionMetadata {
   gradient: string;
   keywords?: string[]; // For enhanced search
   category: string; // Category reference
+  disabled?: boolean; // Prevents navigation
+  comingSoon?: boolean; // Shows "Coming Soon" badge
 }
 
 export interface CategoryMetadata {
@@ -78,7 +80,7 @@ export const ACTIONS: ActionMetadata[] = [
     icon: Phone,
     title: "Get a Phone Number for Assistant",
     description: "Assign phone numbers for your agent to enable direct communication.",
-    href: "/phone-numbers",
+    href: "/settings/phone-numbers",
     badge: "Start Here",
     gradient: CATEGORIES["getting-started"].gradient,
     category: "getting-started",
@@ -86,10 +88,10 @@ export const ACTIONS: ActionMetadata[] = [
   },
   {
     id: "customize-agent",
-    icon: Phone,
+    icon: Settings2,
     title: "Customize Agent",
     description: "Set up your agent's basic configuration and preferences.",
-    href: "/agents",
+    href: "/agent",
     gradient: CATEGORIES["getting-started"].gradient,
     category: "getting-started",
     keywords: ["agent", "customize", "setup", "configuration"],
@@ -99,7 +101,7 @@ export const ACTIONS: ActionMetadata[] = [
     icon: MessageSquare,
     title: "Test Your Agent",
     description: "Try out your agent in the web widget to see how it handles conversations.",
-    href: "/web-widget",
+    href: "/agent?tab=widget",
     gradient: CATEGORIES["getting-started"].gradient,
     category: "getting-started",
     keywords: ["test", "widget", "conversation", "try"],
@@ -111,7 +113,7 @@ export const ACTIONS: ActionMetadata[] = [
     icon: Settings2,
     title: "Train Agent with Instructions",
     description: "Define when the assistant should handle conversations or escalations.",
-    href: "/agents",
+    href: "/agent?tab=rules",
     gradient: CATEGORIES["configure-agent"].gradient,
     category: "configure-agent",
     keywords: ["train", "instructions", "behavior", "escalation"],
@@ -121,10 +123,12 @@ export const ACTIONS: ActionMetadata[] = [
     icon: FileText,
     title: "Upload Knowledge-base",
     description: "Add documents and files to enhance your agent's knowledge and responses.",
-    href: "/files",
+    href: "#",
     gradient: CATEGORIES["configure-agent"].gradient,
     category: "configure-agent",
     keywords: ["knowledge", "upload", "files", "documents"],
+    disabled: true,
+    comingSoon: true,
   },
 
   // Integrations & Tools
@@ -143,10 +147,12 @@ export const ACTIONS: ActionMetadata[] = [
     icon: Zap,
     title: "Configure Tools & Integrations",
     description: "Set up function calling, integrations, and tools your agents can use.",
-    href: "/tools",
+    href: "#",
     gradient: CATEGORIES["integrations"].gradient,
     category: "integrations",
     keywords: ["tools", "integrations", "functions", "api"],
+    disabled: true,
+    comingSoon: true,
   },
   {
     id: "generate-api-keys",
@@ -163,7 +169,7 @@ export const ACTIONS: ActionMetadata[] = [
     icon: Users,
     title: "Invite Team Members",
     description: "Collaborate with your team by adding members and setting permissions.",
-    href: "/settings",
+    href: "/settings/team",
     gradient: CATEGORIES["integrations"].gradient,
     category: "integrations",
     keywords: ["team", "invite", "collaboration", "members"],
