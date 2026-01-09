@@ -6,7 +6,7 @@ import {
   IconChevronDown,
   IconCreditCard,
   IconLogout,
-  IconMessageCircle,
+  IconPhoneCall,
   IconSettings,
   IconUserCircle,
 } from "@tabler/icons-react"
@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AgentChatSheet } from "@/components/agent-chat"
+import { GlobalMakeCallDialog } from "@/components/global-make-call-dialog"
 import { useAuth } from "@/lib/firebase/auth-context"
 
 function getInitials(name: string | null | undefined, email: string | null | undefined): string {
@@ -72,11 +72,11 @@ export function SiteHeader({
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <div className="ml-auto flex items-center gap-3">
-          <AgentChatSheet
+          <GlobalMakeCallDialog
             trigger={
               <Button variant="outline" size="sm">
-                <IconMessageCircle className="size-4 mr-1.5" />
-                Test Agent
+                <IconPhoneCall className="size-4 mr-1.5" />
+                Make Call
               </Button>
             }
           />

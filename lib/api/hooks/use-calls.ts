@@ -6,7 +6,7 @@
  * TanStack Query hooks for the Calls resource.
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { callsService } from "../services/calls";
 import type { CreateCallInput, CreateWebSocketRoomInput } from "../types";
 
@@ -19,6 +19,9 @@ export function useCalls() {
   return useQuery({
     queryKey: CALLS_KEY,
     queryFn: callsService.list,
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch on tab focus
+    placeholderData: keepPreviousData, // Show cached data while refetching
   });
 }
 
@@ -30,6 +33,8 @@ export function useCall(id: string | undefined) {
     queryKey: [...CALLS_KEY, id],
     queryFn: () => callsService.get(id!),
     enabled: !!id,
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch on tab focus
   });
 }
 

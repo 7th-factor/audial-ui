@@ -8,6 +8,7 @@ import {
   IconPlugConnected,
   IconCreditCard,
   IconUsers,
+  IconListCheck,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,11 @@ const settingsNavItems = [
     title: 'Phone numbers',
     url: '/settings/phone-numbers',
     icon: IconPhone,
+  },
+  {
+    title: 'Follow-up Rules',
+    url: '/settings/follow-up-rules',
+    icon: IconListCheck,
   },
   {
     title: 'Integrations',

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -29,59 +29,84 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 import {
-  createFollowUpSchema,
-  type CreateFollowUpInput,
-  followUpStatuses,
+  createFollowUpRuleSchema,
+  type CreateFollowUpRuleInput,
+  followUpActions,
   followUpPriorities,
   dueTimeUnits,
 } from "./types"
-import { mockContacts } from "./data"
 
-interface NewFollowUpDialogProps {
+interface AddRuleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: (data: CreateFollowUpInput) => void
+  onSuccess?: (data: CreateFollowUpRuleInput) => void
 }
 
-export function NewFollowUpDialog({
+// Suggested condition tags
+const conditionTags = [
+  "It's Urgent",
+  "I need more product",
+  "Requests callback",
+  "High value customer",
+]
+
+export function AddRuleDialog({
   open,
   onOpenChange,
   onSuccess,
-}: NewFollowUpDialogProps) {
+}: AddRuleDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
-  const form = useForm<CreateFollowUpInput>({
-    resolver: zodResolver(createFollowUpSchema),
+  const form = useForm<CreateFollowUpRuleInput>({
+    resolver: zodResolver(createFollowUpRuleSchema),
     defaultValues: {
+      condition: "",
       action: "",
-      note: "",
-      contactId: "",
       priority: "high",
-      status: "open",
       dueTime: 1,
       dueTimeUnit: "hours",
     },
   })
 
-  const handleSubmit = async (values: CreateFollowUpInput) => {
+  const handleTagClick = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag))
+    } else {
+      setSelectedTags([...selectedTags, tag])
+    }
+  }
+
+  const handleSubmit = async (values: CreateFollowUpRuleInput) => {
     try {
       setIsLoading(true)
 
-      // TODO: Call API to create follow-up
-      console.log("Creating follow-up:", values)
+      // Include selected tags in the condition if any
+      const finalValues = {
+        ...values,
+        condition:
+          selectedTags.length > 0
+            ? `${values.condition} [Tags: ${selectedTags.join(", ")}]`
+            : values.condition,
+      }
+
+      // TODO: Call API to create rule
+      console.log("Creating rule:", finalValues)
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      toast.success("Follow-up created successfully")
+      toast.success("Rule created successfully")
       form.reset()
+      setSelectedTags([])
       onOpenChange(false)
       onSuccess?.(values)
     } catch {
-      toast.error("Failed to create follow-up. Please try again.")
+      toast.error("Failed to create rule. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -91,7 +116,7 @@ export function NewFollowUpDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create new Follow Up</DialogTitle>
+          <DialogTitle>Add Follow-up rule</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -99,57 +124,58 @@ export function NewFollowUpDialog({
             onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-4">
-              {/* Action */}
-              <FormField
-                control={form.control}
-                name="action"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Action</FormLabel>
-                    <FormControl>
-                      <Input placeholder="eg. Call Back" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Note */}
-              <FormField
-                control={form.control}
-                name="note"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Note <span className="text-muted-foreground">(optional)</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Note" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Select Contact */}
+            {/* Define when follow ups are created */}
             <FormField
               control={form.control}
-              name="contactId"
+              name="condition"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Select Contact</FormLabel>
+                  <FormLabel>Define when follow ups are created</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="eg. When caller says they wants a refund"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Condition Tags */}
+            <div className="flex flex-wrap gap-2">
+              {conditionTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant={selectedTags.includes(tag) ? "default" : "outline"}
+                  className="cursor-pointer"
+                  onClick={() => handleTagClick(tag)}
+                >
+                  {selectedTags.includes(tag) && (
+                    <X className="mr-1 h-3 w-3" />
+                  )}
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+
+            {/* What should we remind you to do? */}
+            <FormField
+              control={form.control}
+              name="action"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>What should we remind you to do?</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Search..." />
+                        <SelectValue placeholder="Select an action" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockContacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>
-                          {contact.name}
+                      {followUpActions.map((action) => (
+                        <SelectItem key={action.value} value={action.value}>
+                          {action.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -176,32 +202,6 @@ export function NewFollowUpDialog({
                       {followUpPriorities.map((priority) => (
                         <SelectItem key={priority.value} value={priority.value}>
                           {priority.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Status */}
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {followUpStatuses.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -259,7 +259,7 @@ export function NewFollowUpDialog({
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Choose when this follow up action is due.
+                Choose when this follow up action is implemented or due.
               </p>
             </div>
 

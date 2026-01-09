@@ -36,7 +36,6 @@ import {
 } from "@/lib/api"
 import { CallForwardingCard } from "@/components/agent/call-forwarding-card"
 import { ToolsSection } from "@/components/agent/tools/tools-section"
-import { CreateOutboundCallDialog } from "@/components/agent/create-outbound-call-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -138,9 +137,6 @@ export default function AgentPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [newAgentName, setNewAgentName] = useState("")
-
-  // Create Outbound Call Dialog State
-  const [showCallDialog, setShowCallDialog] = useState(false)
 
   // Fetch the selected agent
   const { data: agent, isLoading: isLoadingAgent } = useAgent(selectedAgentId ?? undefined)
@@ -688,22 +684,8 @@ export default function AgentPage() {
 
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Phone Numbers</CardTitle>
-                    <CardDescription>Your purchased phone numbers</CardDescription>
-                  </div>
-                  {allPhoneNumbers.length > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={() => setShowCallDialog(true)}
-                      data-testid="make-call-button"
-                    >
-                      <IconPhone className="mr-2 size-4" />
-                      Make Call
-                    </Button>
-                  )}
-                </div>
+                <CardTitle>Phone Numbers</CardTitle>
+                <CardDescription>Your purchased phone numbers</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {allPhoneNumbers.length === 0 ? (
@@ -1244,14 +1226,6 @@ export default function AgentPage() {
       )}
     </PageLayout>
     {createAgentDialog}
-    {selectedAgentId && (
-      <CreateOutboundCallDialog
-        open={showCallDialog}
-        onOpenChange={setShowCallDialog}
-        agentId={selectedAgentId}
-        phoneNumbers={allPhoneNumbers}
-      />
-    )}
     </>
   )
 }
