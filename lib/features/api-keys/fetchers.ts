@@ -11,14 +11,27 @@ import {
 
 const PREFIX = '/api/auth'
 
+// Paginated response type from API
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    total_pages: number
+    has_next: boolean
+    has_previous: boolean
+  }
+}
+
 /**
  * List private API keys
  */
 export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
-  const res = await apiClient.get<Omit<PrivateApiKey, 'type'>[]>(
+  const res = await apiClient.get<PaginatedResponse<Omit<PrivateApiKey, 'type'>>>(
     `${PREFIX}/list-private-keys`
   )
-  return res.map((key) => ({
+  return res.data.map((key) => ({
     ...key,
     type: KeyType.PRIVATE as const,
   }))
@@ -28,10 +41,10 @@ export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
  * List public API keys
  */
 export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
-  const res = await apiClient.get<Omit<PublicApiKey, 'type'>[]>(
+  const res = await apiClient.get<PaginatedResponse<Omit<PublicApiKey, 'type'>>>(
     `${PREFIX}/list-public-keys`
   )
-  return res.map((key) => ({
+  return res.data.map((key) => ({
     ...key,
     type: KeyType.PUBLIC as const,
   }))

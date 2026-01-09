@@ -7,8 +7,8 @@
 
 import { apiClient } from "../client";
 import type {
-  PrivateKey,
-  PublicKey,
+  ListPrivateKeysResponse,
+  ListPublicKeysResponse,
   CreateKeyInput,
   CreateKeyResponse,
   DeleteKeyInput,
@@ -18,15 +18,17 @@ import type {
 export const apiKeysService = {
   /**
    * Fetch all private keys
+   * Returns paginated response with data array and pagination metadata
    */
   listPrivateKeys: () =>
-    apiClient.get<PrivateKey[]>("/api/auth/list-private-keys"),
+    apiClient.get<ListPrivateKeysResponse>("/api/auth/list-private-keys"),
 
   /**
    * Fetch all public keys
+   * Returns paginated response with data array and pagination metadata
    */
   listPublicKeys: () =>
-    apiClient.get<PublicKey[]>("/api/auth/list-public-keys"),
+    apiClient.get<ListPublicKeysResponse>("/api/auth/list-public-keys"),
 
   /**
    * Create a new API key (private or public)

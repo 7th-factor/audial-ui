@@ -28,6 +28,26 @@ export interface PublicKey {
 
 export type KeyType = "private" | "public";
 
+// Pagination types for API key lists
+export interface ApiKeyPagination {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface ListPrivateKeysResponse {
+  data: PrivateKey[];
+  pagination: ApiKeyPagination;
+}
+
+export interface ListPublicKeysResponse {
+  data: PublicKey[];
+  pagination: ApiKeyPagination;
+}
+
 export interface CreatePrivateKeyInput {
   type: "private";
   name: string;

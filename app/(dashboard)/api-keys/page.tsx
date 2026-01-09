@@ -9,12 +9,15 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/data-table'
 import { createColumns } from '@/components/data-table/api-keys/columns'
 import type { CombinedApiKey } from '@/components/data-table/api-keys/schema'
-import { usePrivateKeys, usePublicKeys, type PrivateKey, type PublicKey } from '@/lib/api'
 import {
+  usePrivateKeys,
+  usePublicKeys,
   useCreateApiKey,
   useDeleteApiKey,
-  KeyType,
-} from '@/lib/features/api-keys'
+  type PrivateKey,
+  type PublicKey,
+} from '@/lib/api'
+import { KeyType } from '@/lib/features/api-keys'
 import {
   Dialog,
   DialogContent,
@@ -98,15 +101,19 @@ const statusOptions = [
 
 export default function ApiKeysPage() {
   const {
-    data: privateKeys,
+    data: privateKeysResponse,
     isLoading: isLoadingPrivate,
     error: privateError,
   } = usePrivateKeys()
   const {
-    data: publicKeys,
+    data: publicKeysResponse,
     isLoading: isLoadingPublic,
     error: publicError,
   } = usePublicKeys()
+
+  // Extract data arrays from paginated responses
+  const privateKeys = privateKeysResponse?.data
+  const publicKeys = publicKeysResponse?.data
 
   // Mutations
   const createApiKey = useCreateApiKey()
@@ -142,7 +149,6 @@ export default function ApiKeysPage() {
     try {
       const result = await createApiKey.mutateAsync({
         name: newKeyName.trim(),
-        description: null,
         type: selectedKeyType,
       })
 

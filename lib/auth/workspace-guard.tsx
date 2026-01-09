@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useWorkspaces } from '@/lib/api/hooks/use-workspaces';
@@ -42,8 +42,15 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
   // Skip workspace check for onboarding pages
   const isOnboardingPage = pathname.startsWith('/onboarding');
 
-  // Extract workspaces array from paginated response
-  const workspaces = workspacesResponse?.data ?? [];
+  // Extract workspaces array from paginated response with stable reference
+  const workspaces = useMemo(
+    () => workspacesResponse?.data ?? [],
+    [workspacesResponse]
+  );
+
+  // Use the count for dependency instead of the array itself
+  const workspacesCount = workspaces.length;
+  const firstWorkspaceId = workspaces[0]?.id;
 
   useEffect(() => {
     // Wait for workspaces to load
@@ -55,9 +62,7 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
       return;
     }
 
-    const workspaceList = workspaces;
-
-    if (workspaceList.length === 0) {
+    if (workspacesCount === 0) {
       // No workspaces - redirect to onboarding
       console.log('[WorkspaceGuard] No workspaces found, redirecting to onboarding');
       router.push('/onboarding');
@@ -66,13 +71,13 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
 
     // Auto-select first workspace if none selected
     const currentWorkspaceId = workspaceStore.getWorkspaceId();
-    if (!currentWorkspaceId && workspaceList.length > 0) {
-      console.log('[WorkspaceGuard] Auto-selecting first workspace:', workspaceList[0].id);
-      workspaceStore.setWorkspaceId(workspaceList[0].id);
+    if (!currentWorkspaceId && firstWorkspaceId) {
+      console.log('[WorkspaceGuard] Auto-selecting first workspace:', firstWorkspaceId);
+      workspaceStore.setWorkspaceId(firstWorkspaceId);
     }
 
     setHasInitialized(true);
-  }, [workspacesResponse, isLoading, customToken, router, isOnboardingPage]);
+  }, [isLoading, customToken, router, isOnboardingPage, workspacesCount, firstWorkspaceId]);
 
   // Loading state
   if (isLoading || (!hasInitialized && !isOnboardingPage)) {
