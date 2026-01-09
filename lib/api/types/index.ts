@@ -13,3 +13,4 @@ export * from "./credential";
 export * from "./chat";
 export * from "./whatsapp-sender";
 export * from "./workspace";
+export * from "./follow-up";

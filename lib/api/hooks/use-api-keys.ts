@@ -19,7 +19,7 @@ const PUBLIC_KEYS_KEY = ["api-keys", "public"] as const;
 export function usePrivateKeys() {
   return useQuery({
     queryKey: PRIVATE_KEYS_KEY,
-    queryFn: apiKeysService.listPrivateKeys,
+    queryFn: () => apiKeysService.listPrivateKeys(),
   });
 }
 
@@ -29,7 +29,7 @@ export function usePrivateKeys() {
 export function usePublicKeys() {
   return useQuery({
     queryKey: PUBLIC_KEYS_KEY,
-    queryFn: apiKeysService.listPublicKeys,
+    queryFn: () => apiKeysService.listPublicKeys(),
   });
 }
 

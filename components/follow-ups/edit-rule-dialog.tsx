@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
@@ -32,8 +33,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 
-import { useCreateFollowUpRule } from "@/lib/features/follow-ups"
-import type { CreateFollowUpRuleInput } from "@/lib/api/types/follow-up"
+import { useUpdateFollowUpRule } from "@/lib/features/follow-ups"
+import type { FollowUpRule, UpdateFollowUpRuleInput } from "@/lib/api/types/follow-up"
 import {
   createFollowUpRuleSchema,
   type CreateFollowUpRuleFormInput,
@@ -41,9 +42,10 @@ import {
   followUpPriorities,
 } from "./types"
 
-interface AddRuleDialogProps {
+interface EditRuleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  rule: FollowUpRule | null
   onSuccess?: () => void
 }
 
@@ -55,12 +57,13 @@ const conditionSuggestions = [
   "High value customer",
 ]
 
-export function AddRuleDialog({
+export function EditRuleDialog({
   open,
   onOpenChange,
+  rule,
   onSuccess,
-}: AddRuleDialogProps) {
-  const createRule = useCreateFollowUpRule()
+}: EditRuleDialogProps) {
+  const updateRule = useUpdateFollowUpRule()
 
   const form = useForm<CreateFollowUpRuleFormInput>({
     resolver: zodResolver(createFollowUpRuleSchema),
@@ -75,13 +78,30 @@ export function AddRuleDialog({
     },
   })
 
+  // Reset form when rule changes
+  useEffect(() => {
+    if (rule) {
+      form.reset({
+        condition: rule.condition,
+        action: rule.action,
+        priority: rule.priority,
+        active: rule.active,
+        dueTimeBusiness: rule.dueTime.business,
+        dueTimeHours: rule.dueTime.hours,
+        dueTimeDays: rule.dueTime.days,
+      })
+    }
+  }, [rule, form])
+
   const handleSuggestionClick = (suggestion: string) => {
     form.setValue("condition", suggestion)
   }
 
   const handleSubmit = async (values: CreateFollowUpRuleFormInput) => {
+    if (!rule) return
+
     // Transform form values to API input
-    const apiInput: CreateFollowUpRuleInput = {
+    const apiInput: UpdateFollowUpRuleInput = {
       condition: values.condition,
       action: values.action,
       priority: values.priority,
@@ -93,20 +113,22 @@ export function AddRuleDialog({
       },
     }
 
-    createRule.mutate(apiInput, {
-      onSuccess: () => {
-        form.reset()
-        onOpenChange(false)
-        onSuccess?.()
-      },
-    })
+    updateRule.mutate(
+      { id: rule.id, data: apiInput },
+      {
+        onSuccess: () => {
+          onOpenChange(false)
+          onSuccess?.()
+        },
+      }
+    )
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Follow-up rule</DialogTitle>
+          <DialogTitle>Edit Follow-up rule</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -281,9 +303,9 @@ export function AddRuleDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Enable rule immediately</FormLabel>
+                    <FormLabel>Enable rule</FormLabel>
                     <FormDescription>
-                      Start creating follow-ups based on this rule
+                      Create follow-ups based on this rule
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -295,13 +317,13 @@ export function AddRuleDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={createRule.isPending}
+                disabled={updateRule.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createRule.isPending}>
-                {createRule.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save
+              <Button type="submit" disabled={updateRule.isPending}>
+                {updateRule.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
               </Button>
             </div>
           </form>

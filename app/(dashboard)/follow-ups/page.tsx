@@ -12,61 +12,99 @@ import {
   NewFollowUpDialog,
   ViewFollowUpDialog,
   getFollowUpColumns,
-  mockFollowUps,
   followUpStatuses,
   followUpPriorities,
-  type FollowUp,
+  type FollowUpUIModel,
+  getDisplayStatus,
 } from "@/components/follow-ups"
-import { toast } from "sonner"
+import {
+  useFollowUps,
+  useUpdateFollowUp,
+  useDeleteFollowUp,
+} from "@/lib/features/follow-ups"
+import { useCustomers } from "@/lib/api/hooks/use-customers"
+import type { FollowUp } from "@/lib/api/types/follow-up"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function FollowUpsPage() {
-  const [selectedRows, setSelectedRows] = React.useState<FollowUp[]>([])
+  const [selectedRows, setSelectedRows] = React.useState<FollowUpUIModel[]>([])
   const [showNewDialog, setShowNewDialog] = React.useState(false)
   const [showViewDialog, setShowViewDialog] = React.useState(false)
-  const [selectedFollowUp, setSelectedFollowUp] = React.useState<FollowUp | null>(
-    null
-  )
-  const [followUps, setFollowUps] = React.useState(mockFollowUps)
+  const [selectedFollowUp, setSelectedFollowUp] =
+    React.useState<FollowUpUIModel | null>(null)
 
-  const handleView = React.useCallback((followUp: FollowUp) => {
+  // Fetch data from API
+  const { data: followUpsResponse, isLoading: followUpsLoading } = useFollowUps()
+  const { data: customers } = useCustomers()
+  const updateFollowUp = useUpdateFollowUp()
+  const deleteFollowUp = useDeleteFollowUp()
+
+  // Create a map of customer IDs to names for quick lookup
+  const customerMap = React.useMemo(() => {
+    if (!customers) return new Map<string, string>()
+    // Handle both array and paginated response formats
+    const customerList = Array.isArray(customers) ? customers : (customers as { data?: typeof customers })?.data || []
+    if (!Array.isArray(customerList)) return new Map<string, string>()
+    return new Map(
+      customerList.map((c) => [
+        c.id,
+        [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+          c.phoneNumber ||
+          "Unknown",
+      ])
+    )
+  }, [customers])
+
+  // Transform API data to UI model with computed status and customer names
+  const followUps: FollowUpUIModel[] = React.useMemo(() => {
+    if (!followUpsResponse?.data) return []
+    return followUpsResponse.data.map((fu: FollowUp) => ({
+      ...fu,
+      status: getDisplayStatus(fu.status, fu.dueAt),
+      customerName: customerMap.get(fu.customerId),
+    }))
+  }, [followUpsResponse, customerMap])
+
+  const handleView = React.useCallback((followUp: FollowUpUIModel) => {
     setSelectedFollowUp(followUp)
     setShowViewDialog(true)
   }, [])
 
-  const handleClose = React.useCallback((followUp: FollowUp) => {
-    setFollowUps((prev) =>
-      prev.map((fu) =>
-        fu.id === followUp.id ? { ...fu, status: "closed" as const } : fu
-      )
-    )
-    toast.success("Follow-up closed")
-  }, [])
+  const handleMarkDone = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      updateFollowUp.mutate({
+        id: followUp.id,
+        data: { status: "done" },
+      })
+    },
+    [updateFollowUp]
+  )
 
-  const handleReopen = React.useCallback((followUp: FollowUp) => {
-    setFollowUps((prev) =>
-      prev.map((fu) =>
-        fu.id === followUp.id ? { ...fu, status: "open" as const } : fu
-      )
-    )
-    toast.success("Follow-up reopened")
-  }, [])
+  const handleReopen = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      updateFollowUp.mutate({
+        id: followUp.id,
+        data: { status: "open" },
+      })
+    },
+    [updateFollowUp]
+  )
 
-  const handleDelete = React.useCallback((followUp: FollowUp) => {
-    setFollowUps((prev) => prev.filter((fu) => fu.id !== followUp.id))
-    toast.success("Follow-up deleted")
-  }, [])
+  const handleDelete = React.useCallback(
+    (followUp: FollowUpUIModel) => {
+      deleteFollowUp.mutate(followUp.id)
+    },
+    [deleteFollowUp]
+  )
 
   const handleBulkAction = React.useCallback(
-    (action: string, rows: FollowUp[]) => {
-      console.log(`Bulk action: ${action}`, rows)
+    (action: string, rows: FollowUpUIModel[]) => {
       if (action === "delete") {
-        const ids = rows.map((r) => r.id)
-        setFollowUps((prev) => prev.filter((fu) => !ids.includes(fu.id)))
-        toast.success(`${rows.length} follow-ups deleted`)
+        rows.forEach((row) => deleteFollowUp.mutate(row.id))
       }
       setSelectedRows([])
     },
-    []
+    [deleteFollowUp]
   )
 
   const bulkActions = useTaskBulkActions(
@@ -78,11 +116,11 @@ export default function FollowUpsPage() {
     () =>
       getFollowUpColumns({
         onView: handleView,
-        onClose: handleClose,
+        onMarkDone: handleMarkDone,
         onReopen: handleReopen,
         onDelete: handleDelete,
       }),
-    [handleView, handleClose, handleReopen, handleDelete]
+    [handleView, handleMarkDone, handleReopen, handleDelete]
   )
 
   const headerActions = (
@@ -121,6 +159,22 @@ export default function FollowUpsPage() {
     []
   )
 
+  if (followUpsLoading) {
+    return (
+      <PageLayout
+        title="Follow Ups"
+        description="Manage Follow ups and Escalations"
+        icon={IconUserCheck}
+        actions={headerActions}
+      >
+        <div className="px-4 lg:px-6 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </PageLayout>
+    )
+  }
+
   return (
     <>
       <PageLayout
@@ -133,8 +187,8 @@ export default function FollowUpsPage() {
           <DataTable
             columns={columns}
             data={followUps}
-            onSelectionChange={(rows) => setSelectedRows(rows as FollowUp[])}
-            searchColumnId="contactName"
+            onSelectionChange={(rows) => setSelectedRows(rows as FollowUpUIModel[])}
+            searchColumnId="customerName"
             searchPlaceholder="Filter tasks..."
             facetedFilters={facetedFilters}
             emptyState={{
@@ -154,18 +208,12 @@ export default function FollowUpsPage() {
       <NewFollowUpDialog
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
-        onSuccess={() => {
-          // Refresh data when API is connected
-        }}
       />
 
       <ViewFollowUpDialog
         open={showViewDialog}
         onOpenChange={setShowViewDialog}
         followUp={selectedFollowUp}
-        onSuccess={() => {
-          // Refresh data when API is connected
-        }}
       />
     </>
   )

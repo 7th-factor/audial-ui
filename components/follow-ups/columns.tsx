@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
+import { format } from "date-fns"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,22 +16,22 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 
-import type { FollowUp } from "./types"
-import { followUpStatuses } from "./types"
+import type { FollowUpUIModel } from "./types"
+import { followUpStatuses, followUpActions, getDisplayStatus } from "./types"
 
 interface FollowUpColumnsProps {
-  onView: (followUp: FollowUp) => void
-  onClose: (followUp: FollowUp) => void
-  onReopen: (followUp: FollowUp) => void
-  onDelete: (followUp: FollowUp) => void
+  onView: (followUp: FollowUpUIModel) => void
+  onMarkDone: (followUp: FollowUpUIModel) => void
+  onReopen: (followUp: FollowUpUIModel) => void
+  onDelete: (followUp: FollowUpUIModel) => void
 }
 
 export function getFollowUpColumns({
   onView,
-  onClose,
+  onMarkDone,
   onReopen,
   onDelete,
-}: FollowUpColumnsProps): ColumnDef<FollowUp>[] {
+}: FollowUpColumnsProps): ColumnDef<FollowUpUIModel>[] {
   return [
     {
       id: "select",
@@ -57,21 +58,14 @@ export function getFollowUpColumns({
       enableHiding: false,
     },
     {
-      accessorKey: "contactName",
+      accessorKey: "customerName",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Contact" />
+        <DataTableColumnHeader column={column} title="Customer" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.getValue("contactName")}</span>
-      ),
-    },
-    {
-      accessorKey: "trigger",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Trigger" />
-      ),
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.getValue("trigger")}</span>
+        <span className="font-medium">
+          {row.getValue("customerName") || row.original.customerId}
+        </span>
       ),
     },
     {
@@ -79,16 +73,29 @@ export function getFollowUpColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Action" />
       ),
-      cell: ({ row }) => <span>{row.getValue("action")}</span>,
+      cell: ({ row }) => {
+        const actionValue = row.getValue("action") as string
+        const action = followUpActions.find((a) => a.value === actionValue)
+        return <span>{action?.label || actionValue}</span>
+      },
     },
     {
-      accessorKey: "createdAt",
+      accessorKey: "dueAt",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Created" />
+        <DataTableColumnHeader column={column} title="Due" />
       ),
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.getValue("createdAt")}</span>
-      ),
+      cell: ({ row }) => {
+        const dueAt = row.getValue("dueAt") as string
+        try {
+          return (
+            <span className="text-muted-foreground">
+              {format(new Date(dueAt), "MMM d, yyyy")}
+            </span>
+          )
+        } catch {
+          return <span className="text-muted-foreground">-</span>
+        }
+      },
     },
     {
       accessorKey: "status",
@@ -96,8 +103,13 @@ export function getFollowUpColumns({
         <DataTableColumnHeader column={column} title="Status" />
       ),
       cell: ({ row }) => {
-        const statusValue = row.getValue("status") as string
-        const status = followUpStatuses.find((s) => s.value === statusValue)
+        const followUp = row.original
+        // Compute display status (with overdue)
+        const displayStatus = getDisplayStatus(
+          followUp.status === "overdue" ? "open" : followUp.status,
+          followUp.dueAt
+        )
+        const status = followUpStatuses.find((s) => s.value === displayStatus)
 
         if (!status) return null
 
@@ -108,7 +120,12 @@ export function getFollowUpColumns({
         )
       },
       filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
+        const followUp = row.original
+        const displayStatus = getDisplayStatus(
+          followUp.status === "overdue" ? "open" : followUp.status,
+          followUp.dueAt
+        )
+        return value.includes(displayStatus)
       },
     },
     {
@@ -126,10 +143,28 @@ export function getFollowUpColumns({
       enableHiding: true,
     },
     {
+      accessorKey: "createdAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created" />
+      ),
+      cell: ({ row }) => {
+        const createdAt = row.getValue("createdAt") as string
+        try {
+          return (
+            <span className="text-muted-foreground">
+              {format(new Date(createdAt), "MMM d, yyyy")}
+            </span>
+          )
+        } catch {
+          return <span className="text-muted-foreground">-</span>
+        }
+      },
+    },
+    {
       id: "actions",
       cell: ({ row }) => {
         const followUp = row.original
-        const isClosed = followUp.status === "closed" || followUp.status === "done"
+        const isDone = followUp.status === "done"
 
         return (
           <DropdownMenu>
@@ -147,13 +182,13 @@ export function getFollowUpColumns({
               <DropdownMenuItem onClick={() => onView(followUp)}>
                 View
               </DropdownMenuItem>
-              {isClosed ? (
+              {isDone ? (
                 <DropdownMenuItem onClick={() => onReopen(followUp)}>
                   Reopen
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => onClose(followUp)}>
-                  Close
+                <DropdownMenuItem onClick={() => onMarkDone(followUp)}>
+                  Mark as Done
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

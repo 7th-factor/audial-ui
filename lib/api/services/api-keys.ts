@@ -20,21 +20,25 @@ export const apiKeysService = {
    * Fetch all private keys
    * Returns paginated response with data array and pagination metadata
    */
-  listPrivateKeys: () =>
-    apiClient.get<ListPrivateKeysResponse>("/api/auth/list-private-keys"),
+  listPrivateKeys: (page = 1, limit = 20) =>
+    apiClient.get<ListPrivateKeysResponse>(
+      `/api/auth/keys/private?page=${page}&limit=${limit}`
+    ),
 
   /**
    * Fetch all public keys
    * Returns paginated response with data array and pagination metadata
    */
-  listPublicKeys: () =>
-    apiClient.get<ListPublicKeysResponse>("/api/auth/list-public-keys"),
+  listPublicKeys: (page = 1, limit = 20) =>
+    apiClient.get<ListPublicKeysResponse>(
+      `/api/auth/keys/public?page=${page}&limit=${limit}`
+    ),
 
   /**
    * Create a new API key (private or public)
    */
   create: (data: CreateKeyInput) =>
-    apiClient.post<CreateKeyResponse>("/api/auth/create-key", data),
+    apiClient.post<CreateKeyResponse>("/api/auth/keys", data),
 
   /**
    * Delete an API key

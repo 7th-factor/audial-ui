@@ -15,3 +15,4 @@ export { chatsService } from "./chats";
 export { whatsappSendersService } from "./whatsapp-senders";
 export { authService } from "./auth";
 export { workspacesService } from "./workspaces";
+export { followUpsService } from "./follow-ups";

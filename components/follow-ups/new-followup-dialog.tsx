@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Loader2, Calendar } from "lucide-react"
+import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +17,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -29,21 +31,30 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
 
+import { useCustomers } from "@/lib/api/hooks/use-customers"
+import { useCreateFollowUp } from "@/lib/features/follow-ups"
+import type { CreateFollowUpInput } from "@/lib/api/types/follow-up"
+import type { Customer } from "@/lib/api/types/customer"
 import {
   createFollowUpSchema,
-  type CreateFollowUpInput,
-  followUpStatuses,
+  type CreateFollowUpFormInput,
+  followUpActions,
   followUpPriorities,
-  dueTimeUnits,
 } from "./types"
-import { mockContacts } from "./data"
 
 interface NewFollowUpDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: (data: CreateFollowUpInput) => void
+  onSuccess?: () => void
 }
 
 export function NewFollowUpDialog({
@@ -51,40 +62,93 @@ export function NewFollowUpDialog({
   onOpenChange,
   onSuccess,
 }: NewFollowUpDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
+  const { data: customersResponse, isLoading: customersLoading } = useCustomers()
+  const createFollowUp = useCreateFollowUp()
+  const [selectedDate, setSelectedDate] = useState<Date>()
+  const [selectedHour, setSelectedHour] = useState<string>("12")
+  const [selectedMinute, setSelectedMinute] = useState<string>("00")
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("PM")
 
-  const form = useForm<CreateFollowUpInput>({
+  // Handle both array and paginated response formats
+  const customerList = useMemo((): Customer[] => {
+    if (!customersResponse) return []
+    if (Array.isArray(customersResponse)) return customersResponse
+    const response = customersResponse as { data?: Customer[] }
+    if (response.data && Array.isArray(response.data)) {
+      return response.data
+    }
+    return []
+  }, [customersResponse])
+
+  // Convert 12-hour time to 24-hour and create ISO string
+  const getDateTimeISO = (date: Date, hour: string, minute: string, period: string) => {
+    let hour24 = parseInt(hour)
+    if (period === "PM" && hour24 !== 12) hour24 += 12
+    if (period === "AM" && hour24 === 12) hour24 = 0
+    const dateWithTime = new Date(date)
+    dateWithTime.setHours(hour24, parseInt(minute), 0, 0)
+    return dateWithTime.toISOString()
+  }
+
+  // Hours for 12-hour format
+  const hours = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+  const minutes = ["00", "15", "30", "45"]
+
+  const form = useForm<CreateFollowUpFormInput>({
     resolver: zodResolver(createFollowUpSchema),
     defaultValues: {
       action: "",
       note: "",
-      contactId: "",
+      customerId: "",
       priority: "high",
-      status: "open",
-      dueTime: 1,
-      dueTimeUnit: "hours",
+      tags: [],
+      dueTimeMode: "relative",
+      dueTimeBusiness: true,
+      dueTimeHours: 0,
+      dueTimeDays: 1,
+      dueAt: "",
     },
   })
 
-  const handleSubmit = async (values: CreateFollowUpInput) => {
-    try {
-      setIsLoading(true)
+  const dueTimeMode = form.watch("dueTimeMode")
 
-      // TODO: Call API to create follow-up
-      console.log("Creating follow-up:", values)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      toast.success("Follow-up created successfully")
-      form.reset()
-      onOpenChange(false)
-      onSuccess?.(values)
-    } catch {
-      toast.error("Failed to create follow-up. Please try again.")
-    } finally {
-      setIsLoading(false)
+  const handleSubmit = async (values: CreateFollowUpFormInput) => {
+    // Transform form values to API input
+    const apiInput: CreateFollowUpInput = {
+      customerId: values.customerId,
+      action: values.action,
+      priority: values.priority,
+      note: values.note,
+      tags: values.tags,
     }
+
+    // Set due time based on mode
+    if (values.dueTimeMode === "relative") {
+      apiInput.dueTime = {
+        business: values.dueTimeBusiness ?? true,
+        hours: values.dueTimeHours ?? 0,
+        days: values.dueTimeDays ?? 0,
+      }
+    } else {
+      apiInput.dueAt = values.dueAt
+    }
+
+    createFollowUp.mutate(apiInput, {
+      onSuccess: () => {
+        form.reset()
+        setSelectedDate(undefined)
+        setSelectedHour("12")
+        setSelectedMinute("00")
+        setSelectedPeriod("PM")
+        onOpenChange(false)
+        onSuccess?.()
+      },
+    })
+  }
+
+  const getCustomerDisplayName = (customer: { firstName: string | null; lastName: string | null; phoneNumber: string | null }) => {
+    const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ")
+    return name || customer.phoneNumber || "Unknown"
   }
 
   return (
@@ -99,57 +163,66 @@ export function NewFollowUpDialog({
             onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-4">
-              {/* Action */}
-              <FormField
-                control={form.control}
-                name="action"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Action</FormLabel>
-                    <FormControl>
-                      <Input placeholder="eg. Call Back" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Note */}
-              <FormField
-                control={form.control}
-                name="note"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Note <span className="text-muted-foreground">(optional)</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Note" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Select Contact */}
+            {/* Action */}
             <FormField
               control={form.control}
-              name="contactId"
+              name="action"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Select Contact</FormLabel>
+                  <FormLabel>Action</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Search..." />
+                        <SelectValue placeholder="Select an action" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockContacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>
-                          {contact.name}
+                      {followUpActions.map((action) => (
+                        <SelectItem key={action.value} value={action.value}>
+                          {action.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Note */}
+            <FormField
+              control={form.control}
+              name="note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Note <span className="text-muted-foreground">(optional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter Note" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Select Customer */}
+            <FormField
+              control={form.control}
+              name="customerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Customer</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={customersLoading ? "Loading..." : "Search..."} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {customerList.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {getCustomerDisplayName(customer)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -185,25 +258,22 @@ export function NewFollowUpDialog({
               )}
             />
 
-            {/* Status */}
+            {/* Due Time Mode */}
             <FormField
               control={form.control}
-              name="status"
+              name="dueTimeMode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status</FormLabel>
+                  <FormLabel>Due Time Type</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
+                        <SelectValue />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {followUpStatuses.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="relative">Relative (in X hours/days)</SelectItem>
+                      <SelectItem value="absolute">Absolute (specific date/time)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -211,72 +281,193 @@ export function NewFollowUpDialog({
               )}
             />
 
-            {/* Due Time */}
-            <div className="space-y-2">
-              <FormLabel>Due Time</FormLabel>
-              <div className="flex gap-2">
+            {/* Relative Due Time */}
+            {dueTimeMode === "relative" && (
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <FormField
+                    control={form.control}
+                    name="dueTimeDays"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Days</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dueTimeHours"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Hours</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={23}
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <FormField
                   control={form.control}
-                  name="dueTime"
+                  name="dueTimeBusiness"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(parseInt(e.target.value) || 1)
-                          }
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="dueTimeUnit"
-                  render={({ field }) => (
-                    <FormItem className="w-32">
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {dueTimeUnits.map((unit) => (
-                            <SelectItem key={unit.value} value={unit.value}>
-                              {unit.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Business hours only</FormLabel>
+                        <FormDescription>
+                          Only count hours during business hours
+                        </FormDescription>
+                      </div>
                     </FormItem>
                   )}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Choose when this follow up action is due.
-              </p>
-            </div>
+            )}
 
-            <DialogFooter className="pt-4">
+            {/* Absolute Due Time */}
+            {dueTimeMode === "absolute" && (
+              <FormField
+                control={form.control}
+                name="dueAt"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Due Date & Time</FormLabel>
+                    <div className="flex gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "flex-1 pl-3 text-left font-normal",
+                                !selectedDate && "text-muted-foreground"
+                              )}
+                            >
+                              {selectedDate ? (
+                                format(selectedDate, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => {
+                              setSelectedDate(date)
+                              if (date) {
+                                field.onChange(getDateTimeISO(date, selectedHour, selectedMinute, selectedPeriod))
+                              }
+                            }}
+                            disabled={(date) => {
+                              const today = new Date()
+                              today.setHours(0, 0, 0, 0)
+                              return date < today
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Select
+                        value={selectedHour}
+                        onValueChange={(value) => {
+                          setSelectedHour(value)
+                          if (selectedDate) {
+                            field.onChange(getDateTimeISO(selectedDate, value, selectedMinute, selectedPeriod))
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hours.map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="flex items-center text-muted-foreground">:</span>
+                      <Select
+                        value={selectedMinute}
+                        onValueChange={(value) => {
+                          setSelectedMinute(value)
+                          if (selectedDate) {
+                            field.onChange(getDateTimeISO(selectedDate, selectedHour, value, selectedPeriod))
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {minutes.map((m) => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={selectedPeriod}
+                        onValueChange={(value) => {
+                          setSelectedPeriod(value)
+                          if (selectedDate) {
+                            field.onChange(getDateTimeISO(selectedDate, selectedHour, selectedMinute, value))
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <div className="flex justify-between pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isLoading}
+                disabled={createFollowUp.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={createFollowUp.isPending}>
+                {createFollowUp.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>

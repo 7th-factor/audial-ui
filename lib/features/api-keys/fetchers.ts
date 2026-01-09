@@ -29,7 +29,7 @@ interface PaginatedResponse<T> {
  */
 export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
   const res = await apiClient.get<PaginatedResponse<Omit<PrivateApiKey, 'type'>>>(
-    `${PREFIX}/list-private-keys`
+    `${PREFIX}/keys/private?page=1&limit=100`
   )
   return res.data.map((key) => ({
     ...key,
@@ -42,7 +42,7 @@ export async function listPrivateApiKeys(): Promise<PrivateApiKey[]> {
  */
 export async function listPublicApiKeys(): Promise<PublicApiKey[]> {
   const res = await apiClient.get<PaginatedResponse<Omit<PublicApiKey, 'type'>>>(
-    `${PREFIX}/list-public-keys`
+    `${PREFIX}/keys/public?page=1&limit=100`
   )
   return res.data.map((key) => ({
     ...key,
@@ -69,7 +69,7 @@ export async function getDefaultPublicApiKey(): Promise<PublicApiKey> {
 export async function createApiKey(
   data: CreateApiKeyRequest
 ): Promise<CreateApiKeyResponse> {
-  return apiClient.post<CreateApiKeyResponse>(`${PREFIX}/create-key`, data)
+  return apiClient.post<CreateApiKeyResponse>(`${PREFIX}/keys`, data)
 }
 
 /**

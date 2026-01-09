@@ -2,13 +2,11 @@
 export { NewFollowUpDialog } from './new-followup-dialog';
 export { ViewFollowUpDialog } from './view-followup-dialog';
 export { AddRuleDialog } from './add-rule-dialog';
+export { EditRuleDialog } from './edit-rule-dialog';
 export { getFollowUpColumns } from './columns';
 
 // Types
 export * from './types';
-
-// Data
-export * from './data';
 
 // Kanban Components (hidden for now)
 export { KanbanBoard } from './kanban-board';
